@@ -74,14 +74,15 @@ async function playTurn() {
 
 function showModal(riddle) {
     title.innerText = isStealAttempt ? "✨ STEAL ATTEMPT! ✨" : `Player ${activeAnsweringPlayer}'s Riddle`;
-    // NOTE: Ensure your SQL columns match 'riddle_text' or 'question'
-    document.getElementById('riddle-text').innerText = riddle.riddle_text || riddle.question;
+    
+    // CHANGE THESE to match your Railway column names exactly
+    document.getElementById('riddle-text').innerText = riddle.question; // or riddle.riddle_text
     
     const box = document.getElementById('options-box');
     box.innerHTML = '';
 
     const options = [
-        { text: riddle.option_a },
+        { text: riddle.option_a }, // Change if columns are choice_1, etc.
         { text: riddle.option_b },
         { text: riddle.option_c },
         { text: riddle.option_d }
@@ -91,6 +92,7 @@ function showModal(riddle) {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.innerText = opt.text;
+        // Make sure 'riddle.answer' matches your column name for the correct answer
         btn.onclick = () => checkAnswer(opt.text, riddle.answer, riddle);
         box.appendChild(btn);
     });
