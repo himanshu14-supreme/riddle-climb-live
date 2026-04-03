@@ -2,28 +2,28 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
-const mysql = require('mysql2'); // Add this!
+const mysql = require('mysql2');
 const path = require('path');
 
-// THE CONNECTION BRIDGE
+// 1. Database Connection
 const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT,
-    ssl: { rejectUnauthorized: false } 
+    ssl: { rejectUnauthorized: false }
 });
 
-// This tells the server WHERE the files are
+// 2. Point to the public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// This tells the server WHAT to show first (the Home Page)
+// 3. THE MASTER KEY: This tells the server to show index.html at the home URL
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ADD THIS ROUTE FOR RIDDLES
+// 4. Riddle API
 app.get('/api/riddle', (req, res) => {
     db.query("SELECT * FROM riddles ORDER BY RAND() LIMIT 1", (err, results) => {
         if (err) return res.status(500).json(err);
@@ -37,8 +37,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// Render gives you a PORT automatically
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
-    console.log(`🚀 Game is live on port ${PORT}`);
+    console.log(`Server is running!`);
 });
