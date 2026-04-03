@@ -1,9 +1,14 @@
 {
+  "name": "riddle-climb",
+  "version": "1.0.0",
+  "main": "server.js",
   "dependencies": {
-    "express": "^5.2.1",
-    "socket.io": "^4.8.3"
+    "express": "^4.18.2",
+    "mysql2": "^3.6.0",
+    "socket.io": "^4.7.2",
+    "path": "^0.12.7"
+  },
+  "scripts": {
+    "start": "node server.js"
   }
-}
-"scripts": {
-  "start": "node server.js"
 }
