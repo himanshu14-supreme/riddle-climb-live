@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Riddle Climb: Online</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1 id="status">Player 1's Turn</h1>
+        
+        <div id="board" class="board-grid">
+            <div id="player1" class="statue red-player"></div>
+            <div id="player2" class="statue blue-player"></div>
+        </div>
+
+        <div class="controls">
+            <button id="roll-btn" onclick="playTurn()">Roll for Riddle</button>
+        </div>
+
+        <div class="game-info">
+            <div class="info-item">
+                <span class="icon boost-icon">🚀</span>
+                <p><strong>Boost:</strong> +4 steps (Correct)</p>
+            </div>
+            <div class="info-item">
+                <span class="icon trap-icon">⚠️</span>
+                <p><strong>Trap:</strong> -5 steps (Wrong)</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="riddle-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-title">Riddle Time!</h3>
+            <p id="riddle-text">Loading...</p>
+            <div id="options-box"></div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
