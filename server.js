@@ -15,7 +15,13 @@ const db = mysql.createPool({
     ssl: { rejectUnauthorized: false } 
 });
 
+// This tells the server WHERE the files are
 app.use(express.static(path.join(__dirname, 'public')));
+
+// This tells the server WHAT to show first (the Home Page)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // ADD THIS ROUTE FOR RIDDLES
 app.get('/api/riddle', (req, res) => {
