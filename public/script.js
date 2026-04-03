@@ -1,58 +1,149 @@
-// Function to fetch a random riddle from the server
-async function fetchRiddle() {
-    try {
-        // We use a relative path so it works on both localhost AND Render
-        const response = await fetch('/api/riddle');
-        
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-
-        const data = await response.json();
-        
-        // Assuming your database columns are 'riddle_text' and 'answer'
-        // Update these property names if your SQL columns are different!
-        displayRiddle(data.riddle_text, data.answer);
-
-    } catch (error) {
-        console.error('Error fetching riddle:', error);
-        
-        // Updated error message for the live site
-        alert("Oops! The game couldn't connect to the riddle database. Please check if your Railway database is active and the Environment Variables are correct in Render.");
-    }
-}
-
-// Function to display the riddle on the UI
-function displayRiddle(question, answer) {
-    const riddleElement = document.getElementById('riddle-question');
-    const answerElement = document.getElementById('riddle-answer');
-
-    if (riddleElement) riddleElement.innerText = question;
-    
-    // Hide the answer initially if you have a "Show Answer" button logic
-    if (answerElement) {
-        answerElement.innerText = answer;
-        answerElement.style.display = 'none'; 
-    }
-}
-
-// Example: Trigger the fetch when the "Roll" button is clicked
-const rollButton = document.getElementById('roll-button');
-if (rollButton) {
-    rollButton.addEventListener('click', () => {
-        // Your dice rolling logic here...
-        fetchRiddle();
-    });
-}
-
-// Socket.io logic for multiplayer (as seen in your server.js)
 const socket = io();
 
-function movePlayer(position) {
-    socket.emit('playerMove', { position: position });
+// Game State
+let positions = { 1: 100, 2: 100 };
+let officialTurn = 1;
+let activeAnsweringPlayer = 1;
+let isStealAttempt = false;
+
+// Board Configuration
+const traps = [15, 32, 48, 62, 85, 94];   
+const boosts = [10, 25, 42, 58, 75, 88];  
+
+const board = document.getElementById('board');
+const modal = document.getElementById('riddle-modal');
+const modalContent = document.querySelector('.modal-content');
+const title = document.getElementById('modal-title');
+const statusText = document.getElementById('status');
+
+// 1. GENERATE THE BOARD
+// This fixes the blank board issue
+for (let i = 1; i <= 100; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if (traps.includes(i)) cell.classList.add('trap');
+    if (boosts.includes(i)) cell.classList.add('boost');
+    cell.id = 'cell-' + i;
+    cell.innerText = i;
+    board.appendChild(cell);
 }
 
+// 2. VISUAL UPDATES
+function updateUI() {
+    [1, 2].forEach(num => {
+        const target = document.getElementById('cell-' + positions[num]);
+        const p = document.getElementById('player' + num);
+        if (target && p) {
+            p.style.left = (target.offsetLeft + (num === 1 ? 5 : 25)) + 'px';
+            p.style.top = (target.offsetTop + (num === 1 ? 5 : 25)) + 'px';
+        }
+    });
+}
+window.onload = updateUI;
+
+// 3. MULTIPLAYER SYNC
 socket.on('updateBoard', (data) => {
-    console.log('Another player moved to:', data.position);
-    // Logic to update other players' positions on your grid
+    positions = data.positions;
+    officialTurn = data.nextTurn;
+    updateUI();
+    syncStatus();
 });
+
+// 4. GAME LOGIC
+async function playTurn() {
+    const rollBtn = document.getElementById('roll-btn');
+    rollBtn.disabled = true;
+
+    try {
+        // FIXED: Changed from 'localhost' to '/api/riddle' for Render
+        const response = await fetch('/api/riddle');
+        const riddle = await response.json();
+        
+        if (riddle.error) throw new Error(riddle.error);
+
+        isStealAttempt = false;
+        activeAnsweringPlayer = officialTurn;
+        showModal(riddle);
+    } catch (e) {
+        console.error("Connection Error:", e);
+        // FIXED: Updated error message for the cloud version
+        alert("Cloud Database Error! Please check Render logs and Railway status.");
+        rollBtn.disabled = false;
+    }
+}
+
+function showModal(riddle) {
+    title.innerText = isStealAttempt ? "✨ STEAL ATTEMPT! ✨" : `Player ${activeAnsweringPlayer}'s Riddle`;
+    // NOTE: Ensure your SQL columns match 'riddle_text' or 'question'
+    document.getElementById('riddle-text').innerText = riddle.riddle_text || riddle.question;
+    
+    const box = document.getElementById('options-box');
+    box.innerHTML = '';
+
+    const options = [
+        { text: riddle.option_a },
+        { text: riddle.option_b },
+        { text: riddle.option_c },
+        { text: riddle.option_d }
+    ];
+
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerText = opt.text;
+        btn.onclick = () => checkAnswer(opt.text, riddle.answer, riddle);
+        box.appendChild(btn);
+    });
+    
+    modal.style.display = 'block';
+}
+
+function checkAnswer(selected, correct, riddleData) {
+    if (selected === correct) {
+        modalContent.classList.add('correct-flash');
+        const moveAmount = isStealAttempt ? 1 : 3;
+        positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - moveAmount);
+
+        if (boosts.includes(positions[activeAnsweringPlayer])) {
+            positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - 4);
+        }
+        
+        setTimeout(finishTurn, 800);
+    } else {
+        modalContent.classList.add('wrong-flash');
+        
+        setTimeout(() => {
+            modalContent.classList.remove('wrong-flash');
+            if (!isStealAttempt) {
+                if (traps.includes(positions[officialTurn])) {
+                    positions[officialTurn] = Math.min(100, positions[officialTurn] + 5);
+                }
+                isStealAttempt = true;
+                activeAnsweringPlayer = (officialTurn === 1) ? 2 : 1;
+                showModal(riddleData); 
+            } else {
+                finishTurn();
+            }
+        }, 800);
+    }
+}
+
+function finishTurn() {
+    modalContent.classList.remove('correct-flash');
+    modal.style.display = 'none';
+    officialTurn = (officialTurn === 1) ? 2 : 1;
+    
+    socket.emit('playerMove', {
+        positions: positions,
+        nextTurn: officialTurn
+    });
+    
+    updateUI();
+    syncStatus();
+    document.getElementById('roll-btn').disabled = false;
+}
+
+function syncStatus() {
+    statusText.innerText = `Player ${officialTurn}'s Turn`;
+    statusText.style.color = (officialTurn === 1) ? "#e74c3c" : "#3498db";
+}
