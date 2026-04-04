@@ -3,12 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Riddle Climb: Online</title>
+    <title>Riddle Climb: Competitive</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        button:disabled { background-color: #7f8c8d !important; cursor: not-allowed; opacity: 0.6; }
-        .hidden { display: none !important; }
-    </style>
 </head>
 <body>
     <div id="lobby" class="lobby-container">
@@ -21,24 +17,24 @@
 
     <div id="waiting-room" class="lobby-container hidden">
         <h2 id="wait-room-id"></h2>
-        <p id="player-count-text">Players Joined: 1/2</p>
-        <ul id="player-list" style="color:white; list-style:none;"></ul>
+        <p id="player-count-text">Players Joined: 0/2</p>
+        <ul id="player-list"></ul>
         <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Start Game</button>
     </div>
 
     <div id="game-screen" class="game-container hidden">
-        <div class="top-bar"><span id="room-display"></span><h1 id="status">Waiting...</h1></div>
+        <h1 id="status">Ready!</h1>
         <div id="board" class="board-grid">
             <div id="player1" class="statue red-player"></div>
             <div id="player2" class="statue blue-player"></div>
         </div>
-        <button id="roll-btn" class="menu-btn" onclick="playTurn()">Roll for Riddle</button>
+        <button id="roll-btn" class="menu-btn">Roll for Riddle</button>
     </div>
 
     <div id="riddle-modal" class="modal">
         <div class="modal-content">
             <h3 id="modal-title"></h3>
-            <p id="timer-display" style="color:red;">Time Left: 20s</p>
+            <p id="timer-display"></p>
             <p id="riddle-text"></p>
             <div id="options-box"></div>
         </div>
