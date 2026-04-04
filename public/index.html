@@ -9,8 +9,9 @@
     <div id="lobby" class="lobby-container">
         <h1>Riddle Climb</h1>
         <div class="controls-box">
+            <input type="text" id="player-name-input" placeholder="Enter Your Name">
+            <div class="divider">---</div>
             <button class="menu-btn" onclick="createRoom()">Create Room</button>
-            <div class="divider">OR</div>
             <input type="text" id="room-input" placeholder="Enter Room ID">
             <button class="menu-btn" onclick="joinRoom()">Join Room</button>
         </div>
@@ -20,7 +21,7 @@
         <h2 id="wait-room-id"></h2>
         <div class="waiting-box">
             <p id="player-count-text">Players Joined: 1/2</p>
-            <p id="wait-msg">Waiting for opponent...</p>
+            <ul id="player-list" style="list-style: none; padding: 0; color: #fff;"></ul>
             <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Start Game</button>
         </div>
     </div>
@@ -30,12 +31,10 @@
             <span id="room-display"></span>
             <h1 id="status">Waiting...</h1>
         </div>
-        
         <div id="board" class="board-grid">
             <div id="player1" class="statue red-player"></div>
             <div id="player2" class="statue blue-player"></div>
         </div>
-
         <div class="controls">
             <button id="roll-btn" onclick="playTurn()">Roll for Riddle</button>
         </div>
@@ -43,8 +42,8 @@
 
     <div id="riddle-modal" class="modal">
         <div class="modal-content">
-            <h3 id="modal-title">Riddle Time!</h3>
-            <p id="timer-display" style="color: #e74c3c; font-weight: bold;">Time Left: 20s</p>
+            <h3 id="modal-title"></h3>
+            <p id="timer-display">Time Left: 20s</p>
             <p id="riddle-text"></p>
             <div id="options-box"></div>
         </div>
