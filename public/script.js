@@ -98,7 +98,6 @@ async function playTurn() {
         activeAnsweringPlayer = officialTurn;
         showModal(riddle);
     } catch (e) {
-        console.error("DB Error", e);
         syncStatus();
     }
 }
@@ -108,7 +107,9 @@ function syncStatus() {
     const rollBtn = document.getElementById('roll-btn');
     statusText.innerText = `${playerNames[officialTurn]}'s Turn`;
     statusText.style.color = (officialTurn === 1) ? "#e74c3c" : "#3498db";
-    rollBtn.disabled = (officialTurn !== myPlayerNumber);
+    
+    // Only enable roll button if it's your turn AND no steal is happening
+    rollBtn.disabled = (officialTurn !== myPlayerNumber || isStealAttempt);
     rollBtn.innerText = (officialTurn === myPlayerNumber) ? "Roll for Riddle" : "Wait for turn";
 }
 
@@ -117,14 +118,12 @@ function showModal(riddle) {
     const modalContent = document.querySelector('.modal-content');
     const box = document.getElementById('options-box');
     modalContent.style.backgroundColor = 'white';
-    
     box.innerHTML = '';
     
-    // Check if I am the one supposed to answer
+    // UI Visibility Logic
     if (myPlayerNumber === activeAnsweringPlayer) {
-        document.getElementById('modal-title').innerText = isStealAttempt ? "✨ YOUR STEAL ATTEMPT! ✨" : "Your Riddle";
-        const options = [riddle.option_a, riddle.option_b, riddle.option_c, riddle.option_d];
-        options.forEach(opt => {
+        document.getElementById('modal-title').innerText = isStealAttempt ? "✨ STEAL ATTEMPT! ✨" : "Your Riddle";
+        [riddle.option_a, riddle.option_b, riddle.option_c, riddle.option_d].forEach(opt => {
             const btn = document.createElement('button');
             btn.className = 'option-btn';
             btn.innerText = opt;
@@ -132,11 +131,9 @@ function showModal(riddle) {
             box.appendChild(btn);
         });
     } else {
-        // If I am NOT the answering player (The original player watching the steal)
-        document.getElementById('modal-title').innerText = `Waiting for ${playerNames[activeAnsweringPlayer]} to steal...`;
+        document.getElementById('modal-title').innerText = `Waiting for ${playerNames[activeAnsweringPlayer]}...`;
         const msg = document.createElement('p');
-        msg.innerText = "They are attempting to steal your progress!";
-        msg.style.color = "#333";
+        msg.innerText = isStealAttempt ? "They are trying to steal your progress!" : "It's their turn.";
         box.appendChild(msg);
     }
 
@@ -177,15 +174,15 @@ function handleFailure(riddleData) {
     
     setTimeout(() => {
         if (!isStealAttempt) {
-            // Apply trap penalty to current player
+            // Player 1 failed, activate Trap if they are on one
             if (traps.includes(positions[officialTurn])) {
                 positions[officialTurn] = Math.min(100, positions[officialTurn] + 5);
             }
             
+            // Set up Steal for Player 2
             isStealAttempt = true;
             activeAnsweringPlayer = (officialTurn === 1) ? 2 : 1;
 
-            // Trigger Steal UI for the other player
             socket.emit('triggerSteal', {
                 roomId: currentRoomId,
                 riddle: riddleData,
@@ -194,7 +191,7 @@ function handleFailure(riddleData) {
 
             showModal(riddleData);
         } else {
-            // Steal failed, just end the attempt
+            // Player 2 failed the steal
             finishTurn();
         }
     }, 600);
@@ -209,12 +206,13 @@ socket.on('receiveSteal', (data) => {
 function finishTurn() {
     document.getElementById('riddle-modal').style.display = 'none';
     
-    // LOGIC FIX: Only switch officialTurn if this was NOT a steal attempt
+    // TURN LOGIC FIX:
+    // If it was NOT a steal, we move to the next player's turn.
+    // If it WAS a steal, the next turn is naturally the stealer's turn anyway.
     if (!isStealAttempt) {
         officialTurn = (officialTurn === 1) ? 2 : 1;
     }
     
-    // Reset steal flag for next turn
     isStealAttempt = false;
 
     socket.emit('playerMove', { 
@@ -241,7 +239,7 @@ function updateUI() {
 socket.on('updateBoard', (data) => {
     positions = data.positions;
     officialTurn = data.nextTurn;
-    isStealAttempt = false; // Ensure steal is reset when move arrives
+    isStealAttempt = false; 
     document.getElementById('riddle-modal').style.display = 'none';
     updateUI();
     syncStatus();
