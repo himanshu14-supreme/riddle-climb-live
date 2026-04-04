@@ -12,7 +12,7 @@ let isStealAttempt = false;
 
 // Timer State
 let timerInterval;
-let timeLeft = 30; // Updated initial time to 30
+let timeLeft = 30; 
 let timeSpent = 0;
 
 // Board Configuration
@@ -116,8 +116,8 @@ function syncStatus() {
 
 function showModal(riddle) {
     const modal = document.getElementById('riddle-modal');
-    const modalContent = document.querySelector('.modal-content');
     const box = document.getElementById('options-box');
+    const modalContent = document.querySelector('.modal-content');
     modalContent.style.backgroundColor = 'white';
     box.innerHTML = '';
     
@@ -139,13 +139,12 @@ function showModal(riddle) {
 
     document.getElementById('riddle-text').innerText = riddle.question;
     
-    // Timer setup
-    timeLeft = 30; // Updated to 30 seconds
+    // Timer Reset
+    timeLeft = 30; 
     timeSpent = 0;
     document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
     
     clearInterval(timerInterval);
-    
     timerInterval = setInterval(() => {
         timeLeft--;
         timeSpent++;
@@ -153,6 +152,7 @@ function showModal(riddle) {
         
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
+            // Authority Check: Only the active player triggers the logic
             if (myPlayerNumber === activeAnsweringPlayer) {
                 handleFailure(riddle);
             }
@@ -166,10 +166,7 @@ function showModal(riddle) {
 function checkAnswer(selected, correct, riddleData) {
     clearInterval(timerInterval);
     if (selected === correct) {
-        // Updated movement logic:
-        // Within 15s: 3 steps
-        // Within 20s: 2 steps
-        // Otherwise (up to 30s): 1 step
+        // Tiered Movement Logic
         let move = (timeSpent <= 15) ? 3 : (timeSpent <= 20) ? 2 : 1;
         
         positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - move);
@@ -255,4 +252,11 @@ socket.on('updateBoard', (data) => {
     document.getElementById('riddle-modal').style.display = 'none';
     updateUI();
     syncStatus();
+});
+
+// DISCONNECT HANDLING
+socket.on('playerLeft', (data) => {
+    clearInterval(timerInterval);
+    alert(`${data.name} has left the game. Returning to lobby.`);
+    window.location.reload(); 
 });
