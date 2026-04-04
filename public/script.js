@@ -12,7 +12,7 @@ let isStealAttempt = false;
 
 // Timer State
 let timerInterval;
-let timeLeft = 20;
+let timeLeft = 30; // Updated initial time to 30
 let timeSpent = 0;
 
 // Board Configuration
@@ -138,10 +138,12 @@ function showModal(riddle) {
     }
 
     document.getElementById('riddle-text').innerText = riddle.question;
-    timeLeft = 20;
-    timeSpent = 0;
     
-    // BUG FIX: Always clear any existing interval before starting a new one
+    // Timer setup
+    timeLeft = 30; // Updated to 30 seconds
+    timeSpent = 0;
+    document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
+    
     clearInterval(timerInterval);
     
     timerInterval = setInterval(() => {
@@ -151,7 +153,6 @@ function showModal(riddle) {
         
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            // BUG FIX: Only the person supposed to answer triggers the failure logic
             if (myPlayerNumber === activeAnsweringPlayer) {
                 handleFailure(riddle);
             }
@@ -165,10 +166,14 @@ function showModal(riddle) {
 function checkAnswer(selected, correct, riddleData) {
     clearInterval(timerInterval);
     if (selected === correct) {
-        let move = (timeSpent <= 10) ? 3 : (timeSpent <= 15) ? 2 : 1;
+        // Updated movement logic:
+        // Within 15s: 3 steps
+        // Within 20s: 2 steps
+        // Otherwise (up to 30s): 1 step
+        let move = (timeSpent <= 15) ? 3 : (timeSpent <= 20) ? 2 : 1;
+        
         positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - move);
         
-        // Handle Boosts
         if (boosts.includes(positions[activeAnsweringPlayer])) {
             positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - 4);
         }
@@ -179,17 +184,15 @@ function checkAnswer(selected, correct, riddleData) {
 }
 
 function handleFailure(riddleData) {
-    clearInterval(timerInterval); // Safety clear
+    clearInterval(timerInterval);
     const modalContent = document.querySelector('.modal-content');
     modalContent.style.backgroundColor = '#ff7675'; 
     
-    // Disable buttons to prevent double clicks during animation
     const btns = document.querySelectorAll('.option-btn');
     btns.forEach(b => b.disabled = true);
 
     setTimeout(() => {
         if (!isStealAttempt) {
-            // Move back if hit a trap on a failed turn
             if (traps.includes(positions[officialTurn])) {
                 positions[officialTurn] = Math.min(100, positions[officialTurn] + 5);
             }
@@ -217,10 +220,9 @@ socket.on('receiveSteal', (data) => {
 });
 
 function finishTurn() {
-    clearInterval(timerInterval); // Essential fix: stop timer when turn ends
+    clearInterval(timerInterval);
     document.getElementById('riddle-modal').style.display = 'none';
     
-    // Rotate turn
     officialTurn = (officialTurn === 1) ? 2 : 1;
     isStealAttempt = false;
 
@@ -246,7 +248,7 @@ function updateUI() {
 }
 
 socket.on('updateBoard', (data) => {
-    clearInterval(timerInterval); // Ensure observer stops timer when result arrives
+    clearInterval(timerInterval);
     positions = data.positions;
     officialTurn = data.nextTurn;
     isStealAttempt = false; 
