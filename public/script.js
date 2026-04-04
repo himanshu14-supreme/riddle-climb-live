@@ -75,14 +75,15 @@ async function playTurn() {
 function showModal(riddle) {
     title.innerText = isStealAttempt ? "✨ STEAL ATTEMPT! ✨" : `Player ${activeAnsweringPlayer}'s Riddle`;
     
-    // CHANGE THESE to match your Railway column names exactly
-    document.getElementById('riddle-text').innerText = riddle.question; // or riddle.riddle_text
+    // 1. Map the question (Fixed from 'riddle_text' to 'question')
+    document.getElementById('riddle-text').innerText = riddle.question;
     
     const box = document.getElementById('options-box');
     box.innerHTML = '';
 
+    // 2. Map the options (Using your option_a, option_b, etc.)
     const options = [
-        { text: riddle.option_a }, // Change if columns are choice_1, etc.
+        { text: riddle.option_a },
         { text: riddle.option_b },
         { text: riddle.option_c },
         { text: riddle.option_d }
@@ -92,14 +93,14 @@ function showModal(riddle) {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.innerText = opt.text;
-        // Make sure 'riddle.answer' matches your column name for the correct answer
+        
+        // 3. Map the answer (Fixed to 'riddle.answer')
         btn.onclick = () => checkAnswer(opt.text, riddle.answer, riddle);
         box.appendChild(btn);
     });
     
     modal.style.display = 'block';
 }
-
 function checkAnswer(selected, correct, riddleData) {
     if (selected === correct) {
         modalContent.classList.add('correct-flash');
