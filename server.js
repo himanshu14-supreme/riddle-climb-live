@@ -6,8 +6,7 @@ const io = require('socket.io')(http);
 const path = require('path');
 require('dotenv').config();
 
-// FIX: Serve files from the root directory instead of /public
-app.use(express.static(__dirname)); 
+app.use(express.static(path.join(__dirname, 'public')));
 
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
@@ -36,7 +35,7 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         if (!roomPlayers[roomId]) roomPlayers[roomId] = [];
         if (roomPlayers[roomId].length < 2) {
-            roomPlayers[roomId].push({ id: socket.id, name: playerName || "Guest" });
+            roomPlayers[roomId].push({ id: socket.id, name: playerName });
         }
         io.to(roomId).emit('playerCountUpdate', {
             count: roomPlayers[roomId].length,
@@ -54,4 +53,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`🚀 Server Live on Port ${PORT}`));
+http.listen(PORT, () => console.log(`🚀 Server Live`));
