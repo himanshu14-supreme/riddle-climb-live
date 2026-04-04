@@ -7,18 +7,29 @@
 </head>
 <body>
     <div id="lobby" class="lobby-container">
-        <h1>Riddle Climb Lobby</h1>
-        <div class="lobby-controls">
-            <button onclick="createRoom()">Create New Room</button>
-            <hr>
+        <h1>Riddle Climb</h1>
+        <div class="controls-box">
+            <button class="menu-btn" onclick="createRoom()">Create Room</button>
+            <div class="divider">OR</div>
             <input type="text" id="room-input" placeholder="Enter Room ID">
-            <button onclick="joinRoom()">Join Room</button>
+            <button class="menu-btn" onclick="joinRoom()">Join Room</button>
+        </div>
+    </div>
+
+    <div id="waiting-room" class="lobby-container" style="display: none;">
+        <h2 id="wait-room-id"></h2>
+        <div class="waiting-box">
+            <p id="player-count-text">Players Joined: 1/2</p>
+            <p id="wait-msg">Waiting for opponent...</p>
+            <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Start Game</button>
         </div>
     </div>
 
     <div id="game-screen" class="game-container" style="display: none;">
-        <h2 id="room-display" style="color: #fff; background: #333; padding: 5px; border-radius: 5px;"></h2>
-        <h1 id="status">Waiting for players...</h1>
+        <div class="top-bar">
+            <span id="room-display"></span>
+            <h1 id="status">Waiting...</h1>
+        </div>
         
         <div id="board" class="board-grid">
             <div id="player1" class="statue red-player"></div>
@@ -28,24 +39,13 @@
         <div class="controls">
             <button id="roll-btn" onclick="playTurn()">Roll for Riddle</button>
         </div>
-
-        <div class="game-info">
-            <div class="info-item">
-                <span class="icon boost-icon">🚀</span>
-                <p><strong>Speed Bonus:</strong> Up to +3 steps</p>
-            </div>
-            <div class="info-item">
-                <span class="icon trap-icon">⚠️</span>
-                <p><strong>Trap:</strong> -5 steps (Wrong)</p>
-            </div>
-        </div>
     </div>
 
     <div id="riddle-modal" class="modal">
         <div class="modal-content">
             <h3 id="modal-title">Riddle Time!</h3>
-            <p id="timer-display" style="font-weight: bold; color: #e74c3c;">Time Left: 20s</p>
-            <p id="riddle-text">Loading...</p>
+            <p id="timer-display" style="color: #e74c3c; font-weight: bold;">Time Left: 20s</p>
+            <p id="riddle-text"></p>
             <div id="options-box"></div>
         </div>
     </div>
