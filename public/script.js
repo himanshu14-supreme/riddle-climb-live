@@ -6,6 +6,11 @@ let officialTurn = 1;
 let activeAnsweringPlayer = 1;
 let isStealAttempt = false;
 
+// Timer State
+let timerInterval;
+let timeLeft = 20;
+let timeSpent = 0;
+
 // Board Configuration
 const traps = [15, 32, 48, 62, 85, 94];   
 const boosts = [10, 25, 42, 58, 75, 88];  
@@ -15,9 +20,9 @@ const modal = document.getElementById('riddle-modal');
 const modalContent = document.querySelector('.modal-content');
 const title = document.getElementById('modal-title');
 const statusText = document.getElementById('status');
+const timerDisplay = document.getElementById('timer-display');
 
 // 1. GENERATE THE BOARD
-// This fixes the blank board issue
 for (let i = 1; i <= 100; i++) {
     const cell = document.createElement('div');
     cell.className = 'cell';
@@ -55,7 +60,6 @@ async function playTurn() {
     rollBtn.disabled = true;
 
     try {
-        // FIXED: Changed from 'localhost' to '/api/riddle' for Render
         const response = await fetch('/api/riddle');
         const riddle = await response.json();
         
@@ -66,7 +70,6 @@ async function playTurn() {
         showModal(riddle);
     } catch (e) {
         console.error("Connection Error:", e);
-        // FIXED: Updated error message for the cloud version
         alert("Cloud Database Error! Please check Render logs and Railway status.");
         rollBtn.disabled = false;
     }
@@ -74,14 +77,11 @@ async function playTurn() {
 
 function showModal(riddle) {
     title.innerText = isStealAttempt ? "✨ STEAL ATTEMPT! ✨" : `Player ${activeAnsweringPlayer}'s Riddle`;
-    
-    // 1. Map the question (Fixed from 'riddle_text' to 'question')
     document.getElementById('riddle-text').innerText = riddle.question;
     
     const box = document.getElementById('options-box');
     box.innerHTML = '';
 
-    // 2. Map the options (Using your option_a, option_b, etc.)
     const options = [
         { text: riddle.option_a },
         { text: riddle.option_b },
@@ -93,18 +93,45 @@ function showModal(riddle) {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.innerText = opt.text;
-        
-        // 3. Map the answer (Fixed to 'riddle.answer')
         btn.onclick = () => checkAnswer(opt.text, riddle.answer, riddle);
         box.appendChild(btn);
     });
+
+    // Reset and Start 20s Timer
+    timeLeft = 20;
+    timeSpent = 0;
+    timerDisplay.innerText = `Time Left: ${timeLeft}s`;
+    
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        timeSpent++;
+        timerDisplay.innerText = `Time Left: ${timeLeft}s`;
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            alert("Time's up!");
+            handleFailure(riddle);
+        }
+    }, 1000);
     
     modal.style.display = 'block';
 }
+
 function checkAnswer(selected, correct, riddleData) {
+    clearInterval(timerInterval);
+    
     if (selected === correct) {
         modalContent.classList.add('correct-flash');
-        const moveAmount = isStealAttempt ? 1 : 3;
+        
+        // Dynamic Scoring Logic
+        let moveAmount = 1; 
+        if (timeSpent <= 10) {
+            moveAmount = 3;
+        } else if (timeSpent <= 15) {
+            moveAmount = 2;
+        }
+
         positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - moveAmount);
 
         if (boosts.includes(positions[activeAnsweringPlayer])) {
@@ -113,22 +140,26 @@ function checkAnswer(selected, correct, riddleData) {
         
         setTimeout(finishTurn, 800);
     } else {
-        modalContent.classList.add('wrong-flash');
-        
-        setTimeout(() => {
-            modalContent.classList.remove('wrong-flash');
-            if (!isStealAttempt) {
-                if (traps.includes(positions[officialTurn])) {
-                    positions[officialTurn] = Math.min(100, positions[officialTurn] + 5);
-                }
-                isStealAttempt = true;
-                activeAnsweringPlayer = (officialTurn === 1) ? 2 : 1;
-                showModal(riddleData); 
-            } else {
-                finishTurn();
-            }
-        }, 800);
+        handleFailure(riddleData);
     }
+}
+
+function handleFailure(riddleData) {
+    modalContent.classList.add('wrong-flash');
+    
+    setTimeout(() => {
+        modalContent.classList.remove('wrong-flash');
+        if (!isStealAttempt) {
+            if (traps.includes(positions[officialTurn])) {
+                positions[officialTurn] = Math.min(100, positions[officialTurn] + 5);
+            }
+            isStealAttempt = true;
+            activeAnsweringPlayer = (officialTurn === 1) ? 2 : 1;
+            showModal(riddleData); 
+        } else {
+            finishTurn();
+        }
+    }, 800);
 }
 
 function finishTurn() {
