@@ -19,18 +19,20 @@ const db = mysql.createPool({
 });
 
 const roomPlayers = {}; 
-const socketToRoom = {}; // Track which room a socket belongs to
+const roomStates = {}; // Tracks: { roomId: { answers: [], currentRiddle: {}, timer: null } }
+const socketToRoom = {};
 
 io.on('connection', (socket) => {
     socket.on('joinRoom', (data) => {
         const { roomId, playerName } = data;
         socket.join(roomId);
-        socketToRoom[socket.id] = roomId; // Store mapping
+        socketToRoom[socket.id] = roomId;
         
         if (!roomPlayers[roomId]) roomPlayers[roomId] = [];
-        
         if (roomPlayers[roomId].length < 2) {
-            roomPlayers[roomId].push({ id: socket.id, name: playerName || "Guest" });
+            // First player to join is the Host
+            const isHost = roomPlayers[roomId].length === 0;
+            roomPlayers[roomId].push({ id: socket.id, name: playerName || "Guest", isHost, pos: 100 });
         }
 
         io.to(roomId).emit('playerCountUpdate', {
@@ -39,44 +41,78 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Only the host can trigger this
     socket.on('startGameSignal', (roomId) => {
-        if (roomPlayers[roomId] && roomPlayers[roomId].length >= 2) {
-            io.to(roomId).emit('initGame', roomPlayers[roomId]);
+        io.to(roomId).emit('initGame', roomPlayers[roomId]);
+    });
+
+    // HOST ONLY: Request a riddle for everyone
+    socket.on('requestRiddle', (roomId) => {
+        db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
+            if (err || results.length === 0) return;
+            
+            const riddle = results[0];
+            roomStates[roomId] = { 
+                answers: [], 
+                riddle: riddle,
+                startTime: Date.now() 
+            };
+            
+            // Send riddle to everyone in the room at once
+            io.to(roomId).emit('startRiddleRound', riddle);
+        });
+    });
+
+    socket.on('submitAnswer', (data) => {
+        const { roomId, selected, timeTaken } = data;
+        const state = roomStates[roomId];
+        if (!state) return;
+
+        // Record this player's attempt
+        state.answers.push({
+            socketId: socket.id,
+            isCorrect: selected === state.riddle.answer,
+            time: timeTaken
+        });
+
+        // Check if all joined players have answered
+        if (state.answers.length === roomPlayers[roomId].length) {
+            processResults(roomId);
         }
     });
 
-    socket.on('playerMove', (data) => {
-        socket.to(data.roomId).emit('updateBoard', data);
-    });
+    function processResults(roomId) {
+        const state = roomStates[roomId];
+        const players = roomPlayers[roomId];
 
-    socket.on('triggerSteal', (data) => {
-        socket.to(data.roomId).emit('receiveSteal', data);
-    });
+        // Filter for correct answers and sort by fastest time
+        const winners = state.answers
+            .filter(a => a.isCorrect)
+            .sort((a, b) => a.time - b.time);
+
+        // Rank 1: 2 steps, Rank 2: 1 step
+        winners.forEach((win, index) => {
+            const player = players.find(p => p.id === win.socketId);
+            const moveSteps = (index === 0) ? 2 : 1;
+            player.pos = Math.max(1, player.pos - moveSteps);
+        });
+
+        io.to(roomId).emit('roundResults', {
+            players: players,
+            answers: state.answers // To show who got it right/wrong
+        });
+        
+        delete roomStates[roomId];
+    }
 
     socket.on('disconnect', () => {
         const roomId = socketToRoom[socket.id];
         if (roomId && roomPlayers[roomId]) {
-            // Find the player who left
             const leaver = roomPlayers[roomId].find(p => p.id === socket.id);
-            if (leaver) {
-                // Notify the other player in the room
-                socket.to(roomId).emit('playerLeft', { name: leaver.name });
-            }
-            // Clean up the room data
+            if (leaver) socket.to(roomId).emit('playerLeft', { name: leaver.name });
             roomPlayers[roomId] = roomPlayers[roomId].filter(p => p.id !== socket.id);
-            delete socketToRoom[socket.id];
-            
-            if (roomPlayers[roomId].length === 0) {
-                delete roomPlayers[roomId];
-            }
+            if (roomPlayers[roomId].length === 0) delete roomPlayers[roomId];
         }
-    });
-});
-
-app.get('/api/riddle', (req, res) => {
-    db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
-        if (err || results.length === 0) return res.status(500).json({ error: 'DB Error' });
-        res.json(results[0]);
     });
 });
 
