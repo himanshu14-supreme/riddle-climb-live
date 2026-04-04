@@ -1,11 +1,9 @@
 const socket = io();
 
-// Identity State
+// Identity & Game State
 let myName = "";
-let myPlayerNumber = null; // Will be 1 or 2
+let myPlayerNumber = null; 
 let playerNames = { 1: "Player 1", 2: "Player 2" };
-
-// Game State
 let currentRoomId = null;
 let positions = { 1: 100, 2: 100 };
 let officialTurn = 1;
@@ -20,15 +18,15 @@ let timeSpent = 0;
 const traps = [15, 32, 48, 62, 85, 94];   
 const boosts = [10, 25, 42, 58, 75, 88];  
 
-// --- LOBBY LOGIC ---
+// --- LOBBY & ROOM JOINING ---
 function createRoom() {
-    myName = document.getElementById('player-name-input').value.trim() || "Anonymous";
+    myName = document.getElementById('player-name-input').value.trim() || "Guest";
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     enterWaitingRoom(id);
 }
 
 function joinRoom() {
-    myName = document.getElementById('player-name-input').value.trim() || "Anonymous";
+    myName = document.getElementById('player-name-input').value.trim() || "Guest";
     const id = document.getElementById('room-input').value.trim().toUpperCase();
     if (id) enterWaitingRoom(id);
 }
@@ -43,19 +41,14 @@ function enterWaitingRoom(id) {
 
 socket.on('playerCountUpdate', (data) => {
     document.getElementById('player-count-text').innerText = `Players Joined: ${data.count}/2`;
-    
-    // Show names in waiting room
     const list = document.getElementById('player-list');
     list.innerHTML = data.players.map(p => `<li>✅ ${p.name}</li>`).join('');
 
-    // Assign my player number based on socket ID
     data.players.forEach((p, index) => {
         if (p.id === socket.id) myPlayerNumber = index + 1;
     });
 
-    if (data.count >= 2) {
-        document.getElementById('start-game-btn').disabled = false;
-    }
+    if (data.count >= 2) document.getElementById('start-game-btn').disabled = false;
 });
 
 function requestStart() {
@@ -63,13 +56,11 @@ function requestStart() {
 }
 
 socket.on('initGame', (players) => {
-    // Store final names
     playerNames[1] = players[0].name;
     playerNames[2] = players[1].name;
-
     document.getElementById('waiting-room').style.display = 'none';
     document.getElementById('game-screen').style.display = 'block';
-    document.getElementById('room-display').innerText = `Room: ${currentRoomId} | You are: ${myName}`;
+    document.getElementById('room-display').innerText = `Room: ${currentRoomId} | User: ${myName}`;
     updateUI();
     syncStatus();
 });
@@ -86,16 +77,14 @@ for (let i = 1; i <= 100; i++) {
     board.appendChild(cell);
 }
 
-// --- GAMEPLAY ---
+// --- CORE GAMEPLAY ---
 async function playTurn() {
-    // SECURITY: Block if it's not your turn
-    if (officialTurn !== myPlayerNumber) {
-        alert(`Wait for your turn! It's currently ${playerNames[officialTurn]}'s turn.`);
-        return;
-    }
+    // Double check just in case
+    if (officialTurn !== myPlayerNumber) return;
 
     const btn = document.getElementById('roll-btn');
     btn.disabled = true;
+    btn.innerText = "Loading...";
 
     try {
         const response = await fetch('/api/riddle');
@@ -104,7 +93,24 @@ async function playTurn() {
         activeAnsweringPlayer = officialTurn;
         showModal(riddle);
     } catch (e) {
+        syncStatus(); // Reset button if error
+    }
+}
+
+function syncStatus() {
+    const s = document.getElementById('status');
+    const btn = document.getElementById('roll-btn');
+
+    s.innerText = `${playerNames[officialTurn]}'s Turn`;
+    s.style.color = (officialTurn === 1) ? "#e74c3c" : "#3498db";
+
+    // TURN CHECK LOGIC
+    if (officialTurn === myPlayerNumber) {
         btn.disabled = false;
+        btn.innerText = "Roll for Riddle";
+    } else {
+        btn.disabled = true;
+        btn.innerText = "Wait for your turn";
     }
 }
 
@@ -120,14 +126,8 @@ function showModal(riddle) {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.innerText = opt.text;
-        
-        // Only the active player can click answers
         btn.onclick = () => {
-            if (myPlayerNumber === activeAnsweringPlayer) {
-                checkAnswer(opt.text, riddle.answer, riddle);
-            } else {
-                alert("Only the active player can answer!");
-            }
+            if (myPlayerNumber === activeAnsweringPlayer) checkAnswer(opt.text, riddle.answer, riddle);
         };
         box.appendChild(btn);
     });
@@ -176,7 +176,6 @@ function finishTurn() {
     socket.emit('playerMove', { roomId: currentRoomId, positions: positions, nextTurn: officialTurn });
     updateUI();
     syncStatus();
-    document.getElementById('roll-btn').disabled = false;
 }
 
 function updateUI() {
@@ -188,12 +187,6 @@ function updateUI() {
             p.style.top = target.offsetTop + (num === 1 ? 5 : 20) + 'px';
         }
     });
-}
-
-function syncStatus() {
-    const s = document.getElementById('status');
-    s.innerText = `${playerNames[officialTurn]}'s Turn`;
-    s.style.color = (officialTurn === 1) ? "#e74c3c" : "#3498db";
 }
 
 socket.on('updateBoard', (data) => {
