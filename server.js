@@ -6,6 +6,7 @@ const io = require('socket.io')(http);
 const path = require('path');
 require('dotenv').config();
 
+// Serves files from the /public folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 const db = mysql.createConnection({
@@ -35,7 +36,7 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         if (!roomPlayers[roomId]) roomPlayers[roomId] = [];
         if (roomPlayers[roomId].length < 2) {
-            roomPlayers[roomId].push({ id: socket.id, name: playerName });
+            roomPlayers[roomId].push({ id: socket.id, name: playerName || "Guest" });
         }
         io.to(roomId).emit('playerCountUpdate', {
             count: roomPlayers[roomId].length,
@@ -50,7 +51,13 @@ io.on('connection', (socket) => {
     socket.on('playerMove', (data) => {
         socket.to(data.roomId).emit('updateBoard', data);
     });
+
+    // NEW: Handle the Steal synchronization
+    socket.on('triggerSteal', (data) => {
+        // Sends the riddle to the other player in the room
+        socket.to(data.roomId).emit('receiveSteal', data);
+    });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`🚀 Server Live`));
+http.listen(PORT, () => console.log(`🚀 Server Live on Port ${PORT}`));
