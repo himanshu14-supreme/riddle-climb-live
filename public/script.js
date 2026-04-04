@@ -6,8 +6,6 @@ let currentRoomId = null;
 let playerList = [];
 let timerInterval;
 
-// --- ROOM LOGIC ---
-
 function createRoom() {
     myName = document.getElementById('player-name-input').value.trim() || "Guest";
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -26,8 +24,8 @@ function joinRoom() {
 
 function enterWaitingRoom(id) {
     currentRoomId = id;
-    document.getElementById('lobby').style.display = 'none';
-    document.getElementById('waiting-room').style.display = 'block';
+    document.getElementById('lobby').classList.add('hidden');
+    document.getElementById('waiting-room').classList.remove('hidden');
     document.getElementById('wait-room-id').innerText = `ROOM ID: ${id}`;
 }
 
@@ -35,13 +33,10 @@ socket.on('playerCountUpdate', (data) => {
     playerList = data.players;
     const me = playerList.find(p => p.id === socket.id);
     isHost = me ? me.isHost : false;
-
     document.getElementById('player-count-text').innerText = `Players Joined: ${data.count}/2`;
     document.getElementById('player-list').innerHTML = playerList.map(p => 
         `<li>${p.isHost ? '👑' : '👤'} ${p.name} ${p.id === socket.id ? '(You)' : ''}</li>`
     ).join('');
-
-    // Only host can start game
     document.getElementById('start-game-btn').disabled = !(isHost && data.count >= 2);
 });
 
@@ -50,8 +45,8 @@ function requestStart() {
 }
 
 socket.on('initGame', (players) => {
-    document.getElementById('waiting-room').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'block';
+    document.getElementById('waiting-room').classList.add('hidden');
+    document.getElementById('game-screen').classList.remove('hidden');
     generateBoard();
     updateUI(players);
     syncRollButton();
@@ -61,6 +56,7 @@ function syncRollButton() {
     const rollBtn = document.getElementById('roll-btn');
     if (isHost) {
         rollBtn.style.display = 'block';
+        rollBtn.disabled = false;
         rollBtn.innerText = "Roll for Riddle (Everyone)";
         rollBtn.onclick = () => socket.emit('requestRiddle', currentRoomId);
     } else {
@@ -70,14 +66,12 @@ function syncRollButton() {
     }
 }
 
-// --- SIMULTANEOUS GAMEPLAY ---
-
 socket.on('startRiddleRound', (riddle) => {
     const modal = document.getElementById('riddle-modal');
     const box = document.getElementById('options-box');
     const startTime = Date.now();
     
-    document.getElementById('modal-title').innerText = "COMPETITIVE ROUND!";
+    document.getElementById('modal-title').innerText = "QUICKEST WINS!";
     document.getElementById('riddle-text').innerText = riddle.question;
     box.innerHTML = '';
 
@@ -87,36 +81,23 @@ socket.on('startRiddleRound', (riddle) => {
         btn.innerText = opt;
         btn.onclick = () => {
             const timeTaken = Date.now() - startTime;
-            // Disable all buttons immediately after clicking
             Array.from(box.children).forEach(b => b.disabled = true);
             btn.style.background = "#f1c40f";
-            btn.innerText = "Waiting for others...";
-            
-            socket.emit('submitAnswer', {
-                roomId: currentRoomId,
-                selected: opt,
-                timeTaken: timeTaken
-            });
+            socket.emit('submitAnswer', { roomId: currentRoomId, selected: opt, timeTaken });
         };
         box.appendChild(btn);
     });
 
     let timeLeft = 30;
-    document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
-    
     clearInterval(timerInterval);
     timerInterval = setInterval(() => {
         timeLeft--;
         document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            // If time runs out and player hasn't clicked, submit "None"
-            if (!box.querySelector(':disabled')) {
-                socket.emit('submitAnswer', { roomId: currentRoomId, selected: null, timeTaken: 30000 });
-            }
+            socket.emit('submitAnswer', { roomId: currentRoomId, selected: null, timeTaken: 30000 });
         }
     }, 1000);
-
     modal.style.display = 'block';
 });
 
@@ -129,12 +110,11 @@ socket.on('roundResults', (data) => {
 
 function updateUI(players) {
     players.forEach((p, index) => {
-        const playerNum = index + 1;
         const target = document.getElementById('cell-' + p.pos);
-        const pDiv = document.getElementById('player' + playerNum);
+        const pDiv = document.getElementById('player' + (index + 1));
         if (target && pDiv) {
-            pDiv.style.left = target.offsetLeft + (playerNum === 1 ? 5 : 20) + 'px';
-            pDiv.style.top = target.offsetTop + (playerNum === 1 ? 5 : 20) + 'px';
+            pDiv.style.left = target.offsetLeft + (index === 0 ? 5 : 20) + 'px';
+            pDiv.style.top = target.offsetTop + (index === 0 ? 5 : 20) + 'px';
         }
     });
 }
