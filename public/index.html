@@ -6,8 +6,19 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="game-container">
-        <h1 id="status">Player 1's Turn</h1>
+    <div id="lobby" class="lobby-container">
+        <h1>Riddle Climb Lobby</h1>
+        <div class="lobby-controls">
+            <button onclick="createRoom()">Create New Room</button>
+            <hr>
+            <input type="text" id="room-input" placeholder="Enter Room ID">
+            <button onclick="joinRoom()">Join Room</button>
+        </div>
+    </div>
+
+    <div id="game-screen" class="game-container" style="display: none;">
+        <h2 id="room-display" style="color: #fff; background: #333; padding: 5px; border-radius: 5px;"></h2>
+        <h1 id="status">Waiting for players...</h1>
         
         <div id="board" class="board-grid">
             <div id="player1" class="statue red-player"></div>
@@ -21,7 +32,7 @@
         <div class="game-info">
             <div class="info-item">
                 <span class="icon boost-icon">🚀</span>
-                <p><strong>Boost:</strong> Variable steps (Based on speed)</p>
+                <p><strong>Speed Bonus:</strong> Up to +3 steps</p>
             </div>
             <div class="info-item">
                 <span class="icon trap-icon">⚠️</span>
@@ -33,7 +44,7 @@
     <div id="riddle-modal" class="modal">
         <div class="modal-content">
             <h3 id="modal-title">Riddle Time!</h3>
-            <p id="timer-display" style="font-weight: bold; color: #e74c3c; font-size: 1.2rem;">Time Left: 20s</p>
+            <p id="timer-display" style="font-weight: bold; color: #e74c3c;">Time Left: 20s</p>
             <p id="riddle-text">Loading...</p>
             <div id="options-box"></div>
         </div>
