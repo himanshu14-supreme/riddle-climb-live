@@ -17,32 +17,26 @@ const db = mysql.createConnection({
 });
 
 db.connect((err) => {
-    if (err) console.error('❌ Database connection failed:', err.message);
+    if (err) console.error('❌ DB Error:', err.message);
 });
 
 app.get('/api/riddle', (req, res) => {
-    const query = 'SELECT * FROM riddles ORDER BY RAND() LIMIT 1';
-    db.query(query, (err, results) => {
-        if (err) return res.status(500).json({ error: 'Database query failed' });
+    db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
+        if (err) return res.status(500).json({ error: 'Query failed' });
         res.json(results[0]);
     });
 });
 
-// MULTIPLAYER LOGIC WITH NAMES
-const roomPlayers = {}; // Stores { roomId: [ {id, name}, {id, name} ] }
+const roomPlayers = {}; 
 
 io.on('connection', (socket) => {
     socket.on('joinRoom', (data) => {
         const { roomId, playerName } = data;
         socket.join(roomId);
-        
         if (!roomPlayers[roomId]) roomPlayers[roomId] = [];
-        
-        // Add player if not already in list
         if (roomPlayers[roomId].length < 2) {
             roomPlayers[roomId].push({ id: socket.id, name: playerName });
         }
-
         io.to(roomId).emit('playerCountUpdate', {
             count: roomPlayers[roomId].length,
             players: roomPlayers[roomId] 
@@ -56,11 +50,7 @@ io.on('connection', (socket) => {
     socket.on('playerMove', (data) => {
         socket.to(data.roomId).emit('updateBoard', data);
     });
-
-    socket.on('disconnect', () => {
-        // Simple cleanup could be added here
-    });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`🚀 Server running`));
+http.listen(PORT, () => console.log(`🚀 Server Live`));
