@@ -89,7 +89,7 @@ async function playTurn() {
     if (officialTurn !== myPlayerNumber) return;
     const btn = document.getElementById('roll-btn');
     btn.disabled = true;
-    btn.innerText = "Loading...";
+    btn.innerText = "Generating Riddle...";
 
     try {
         const response = await fetch('/api/riddle');
@@ -98,6 +98,7 @@ async function playTurn() {
         activeAnsweringPlayer = officialTurn;
         showModal(riddle);
     } catch (e) {
+        console.error("Fetch error:", e);
         syncStatus();
     }
 }
@@ -108,10 +109,9 @@ function syncStatus() {
     statusText.innerText = `${playerNames[officialTurn]}'s Turn`;
     statusText.style.color = (officialTurn === 1) ? "#e74c3c" : "#3498db";
     
-    // Disable roll button while modal is open OR if it's not your turn
     const isModalOpen = document.getElementById('riddle-modal').style.display === 'block';
     rollBtn.disabled = (officialTurn !== myPlayerNumber || isModalOpen);
-    rollBtn.innerText = (officialTurn === myPlayerNumber) ? "Roll for Riddle" : "Wait for turn";
+    rollBtn.innerText = (officialTurn === myPlayerNumber) ? "Roll for Riddle" : `Waiting for ${playerNames[officialTurn]}...`;
 }
 
 function showModal(riddle) {
@@ -140,14 +140,21 @@ function showModal(riddle) {
     document.getElementById('riddle-text').innerText = riddle.question;
     timeLeft = 20;
     timeSpent = 0;
+    
+    // BUG FIX: Always clear any existing interval before starting a new one
     clearInterval(timerInterval);
+    
     timerInterval = setInterval(() => {
         timeLeft--;
         timeSpent++;
         document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
+        
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            handleFailure(riddle);
+            // BUG FIX: Only the person supposed to answer triggers the failure logic
+            if (myPlayerNumber === activeAnsweringPlayer) {
+                handleFailure(riddle);
+            }
         }
     }, 1000);
 
@@ -160,6 +167,8 @@ function checkAnswer(selected, correct, riddleData) {
     if (selected === correct) {
         let move = (timeSpent <= 10) ? 3 : (timeSpent <= 15) ? 2 : 1;
         positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - move);
+        
+        // Handle Boosts
         if (boosts.includes(positions[activeAnsweringPlayer])) {
             positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - 4);
         }
@@ -170,17 +179,21 @@ function checkAnswer(selected, correct, riddleData) {
 }
 
 function handleFailure(riddleData) {
+    clearInterval(timerInterval); // Safety clear
     const modalContent = document.querySelector('.modal-content');
     modalContent.style.backgroundColor = '#ff7675'; 
     
+    // Disable buttons to prevent double clicks during animation
+    const btns = document.querySelectorAll('.option-btn');
+    btns.forEach(b => b.disabled = true);
+
     setTimeout(() => {
         if (!isStealAttempt) {
-            // Normal Turn failed
+            // Move back if hit a trap on a failed turn
             if (traps.includes(positions[officialTurn])) {
                 positions[officialTurn] = Math.min(100, positions[officialTurn] + 5);
             }
             
-            // Switch to Steal Mode
             isStealAttempt = true;
             activeAnsweringPlayer = (officialTurn === 1) ? 2 : 1;
 
@@ -192,10 +205,9 @@ function handleFailure(riddleData) {
 
             showModal(riddleData);
         } else {
-            // Steal failed
             finishTurn();
         }
-    }, 600);
+    }, 800);
 }
 
 socket.on('receiveSteal', (data) => {
@@ -205,13 +217,10 @@ socket.on('receiveSteal', (data) => {
 });
 
 function finishTurn() {
+    clearInterval(timerInterval); // Essential fix: stop timer when turn ends
     document.getElementById('riddle-modal').style.display = 'none';
     
-    // NEW LOGIC:
-    // If Player 1 finishes their turn (Correct or Wrong), the turn MUST move to Player 2.
-    // If a Steal attempt finishes, the turn MUST also be with Player 2.
-    // We always rotate the turn to the next person after the whole "Turn + Steal" sequence ends.
-    
+    // Rotate turn
     officialTurn = (officialTurn === 1) ? 2 : 1;
     isStealAttempt = false;
 
@@ -237,6 +246,7 @@ function updateUI() {
 }
 
 socket.on('updateBoard', (data) => {
+    clearInterval(timerInterval); // Ensure observer stops timer when result arrives
     positions = data.positions;
     officialTurn = data.nextTurn;
     isStealAttempt = false; 
