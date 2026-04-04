@@ -8,6 +8,7 @@ require('dotenv').config();
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// DATABASE CONNECTION
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -21,6 +22,7 @@ db.connect((err) => {
     else console.log('✅ Connected to Railway MySQL Database');
 });
 
+// RIDDLE API
 app.get('/api/riddle', (req, res) => {
     const query = 'SELECT * FROM riddles ORDER BY RAND() LIMIT 1';
     db.query(query, (err, results) => {
@@ -29,26 +31,28 @@ app.get('/api/riddle', (req, res) => {
     });
 });
 
-// MULTIPLAYER ROOM LOGIC
+// SOCKET.IO ROOM & WAITING LOGIC
 io.on('connection', (socket) => {
-    console.log('A user connected');
-
     socket.on('joinRoom', (roomId) => {
         socket.join(roomId);
-        console.log(`User joined room: ${roomId}`);
+        
+        // Count players in this specific room
+        const clients = io.sockets.adapter.rooms.get(roomId);
+        const numClients = clients ? clients.size : 0;
+
+        // Update everyone in that room with the new count
+        io.to(roomId).emit('playerCountUpdate', numClients);
+    });
+
+    socket.on('startGameSignal', (roomId) => {
+        // Send signal to all players in room to switch from Waiting to Game screen
+        io.to(roomId).emit('initGame');
     });
 
     socket.on('playerMove', (data) => {
-        // Only broadcast to people in the same room
         socket.to(data.roomId).emit('updateBoard', data);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
     });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
-    console.log(`🚀 Game Server running on port ${PORT}`);
-});
+http.listen(PORT, () => console.log(`🚀 Server: http://localhost:${PORT}`));
