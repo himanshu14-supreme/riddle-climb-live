@@ -1,5 +1,6 @@
 const socket = io();
 
+// Identity & Game State
 let myName = "";
 let myPlayerNumber = null; 
 let playerNames = { 1: "Player 1", 2: "Player 2" };
@@ -9,14 +10,17 @@ let officialTurn = 1;
 let activeAnsweringPlayer = 1;
 let isStealAttempt = false;
 
+// Timer State
 let timerInterval;
 let timeLeft = 20;
 let timeSpent = 0;
 
+// Board Configuration
 const traps = [15, 32, 48, 62, 85, 94];   
 const boosts = [10, 25, 42, 58, 75, 88];  
 
-// --- LOBBY LOGIC ---
+// --- 1. LOBBY & ROOM LOGIC ---
+
 function createRoom() {
     myName = document.getElementById('player-name-input').value.trim() || "Guest";
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -43,7 +47,6 @@ socket.on('playerCountUpdate', (data) => {
     document.getElementById('player-count-text').innerText = `Players Joined: ${data.count}/2`;
     const list = document.getElementById('player-list');
     list.innerHTML = data.players.map(p => `<li>✅ ${p.name}</li>`).join('');
-
     data.players.forEach((p, index) => {
         if (p.id === socket.id) myPlayerNumber = index + 1;
     });
@@ -58,8 +61,9 @@ socket.on('initGame', (players) => {
     playerNames[1] = players[0].name;
     playerNames[2] = players[1].name;
     document.getElementById('waiting-room').style.display = 'none';
-    document.getElementById('game-screen').style.display = 'block';
-    document.getElementById('game-screen').classList.remove('hidden');
+    const gameScreen = document.getElementById('game-screen');
+    gameScreen.style.display = 'block';
+    gameScreen.classList.remove('hidden');
     generateBoard();
     updateUI();
     syncStatus();
@@ -67,7 +71,7 @@ socket.on('initGame', (players) => {
 
 function generateBoard() {
     const board = document.getElementById('board');
-    if (!board || board.children.length > 2) return;
+    if (!board || board.children.length > 2) return; 
     for (let i = 1; i <= 100; i++) {
         const cell = document.createElement('div');
         cell.className = 'cell';
@@ -79,12 +83,14 @@ function generateBoard() {
     }
 }
 
-// --- GAMEPLAY ---
+// --- 2. GAMEPLAY LOGIC ---
+
 async function playTurn() {
     if (officialTurn !== myPlayerNumber) return;
     const btn = document.getElementById('roll-btn');
     btn.disabled = true;
     btn.innerText = "Loading...";
+
     try {
         const response = await fetch('/api/riddle');
         const riddle = await response.json();
@@ -92,6 +98,7 @@ async function playTurn() {
         activeAnsweringPlayer = officialTurn;
         showModal(riddle);
     } catch (e) {
+        console.error("DB Error", e);
         syncStatus();
     }
 }
@@ -108,24 +115,32 @@ function syncStatus() {
 function showModal(riddle) {
     const modal = document.getElementById('riddle-modal');
     const modalContent = document.querySelector('.modal-content');
+    const box = document.getElementById('options-box');
     modalContent.style.backgroundColor = 'white';
     
-    document.getElementById('modal-title').innerText = isStealAttempt ? `✨ STEAL! (${playerNames[activeAnsweringPlayer]}) ✨` : `${playerNames[activeAnsweringPlayer]}'s Riddle`;
-    document.getElementById('riddle-text').innerText = riddle.question;
-    
-    const box = document.getElementById('options-box');
     box.innerHTML = '';
+    
+    // Check if I am the one supposed to answer
+    if (myPlayerNumber === activeAnsweringPlayer) {
+        document.getElementById('modal-title').innerText = isStealAttempt ? "✨ YOUR STEAL ATTEMPT! ✨" : "Your Riddle";
+        const options = [riddle.option_a, riddle.option_b, riddle.option_c, riddle.option_d];
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(opt, riddle.answer, riddle);
+            box.appendChild(btn);
+        });
+    } else {
+        // If I am NOT the answering player (The original player watching the steal)
+        document.getElementById('modal-title').innerText = `Waiting for ${playerNames[activeAnsweringPlayer]} to steal...`;
+        const msg = document.createElement('p');
+        msg.innerText = "They are attempting to steal your progress!";
+        msg.style.color = "#333";
+        box.appendChild(msg);
+    }
 
-    [riddle.option_a, riddle.option_b, riddle.option_c, riddle.option_d].forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = 'option-btn';
-        btn.innerText = opt;
-        btn.onclick = () => {
-            if (myPlayerNumber === activeAnsweringPlayer) checkAnswer(opt, riddle.answer, riddle);
-        };
-        box.appendChild(btn);
-    });
-
+    document.getElementById('riddle-text').innerText = riddle.question;
     timeLeft = 20;
     timeSpent = 0;
     clearInterval(timerInterval);
@@ -138,6 +153,7 @@ function showModal(riddle) {
             handleFailure(riddle);
         }
     }, 1000);
+
     modal.style.display = 'block';
 }
 
@@ -146,7 +162,9 @@ function checkAnswer(selected, correct, riddleData) {
     if (selected === correct) {
         let move = (timeSpent <= 10) ? 3 : (timeSpent <= 15) ? 2 : 1;
         positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - move);
-        if (boosts.includes(positions[activeAnsweringPlayer])) positions[activeAnsweringPlayer] -= 4;
+        if (boosts.includes(positions[activeAnsweringPlayer])) {
+            positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - 4);
+        }
         finishTurn();
     } else {
         handleFailure(riddleData);
@@ -159,13 +177,15 @@ function handleFailure(riddleData) {
     
     setTimeout(() => {
         if (!isStealAttempt) {
+            // Apply trap penalty to current player
             if (traps.includes(positions[officialTurn])) {
                 positions[officialTurn] = Math.min(100, positions[officialTurn] + 5);
             }
+            
             isStealAttempt = true;
             activeAnsweringPlayer = (officialTurn === 1) ? 2 : 1;
 
-            // Notify other player to start steal
+            // Trigger Steal UI for the other player
             socket.emit('triggerSteal', {
                 roomId: currentRoomId,
                 riddle: riddleData,
@@ -174,12 +194,12 @@ function handleFailure(riddleData) {
 
             showModal(riddleData);
         } else {
+            // Steal failed, just end the attempt
             finishTurn();
         }
     }, 600);
 }
 
-// Listener for Steal Attempt from other player
 socket.on('receiveSteal', (data) => {
     isStealAttempt = true;
     activeAnsweringPlayer = data.stealer;
@@ -188,8 +208,21 @@ socket.on('receiveSteal', (data) => {
 
 function finishTurn() {
     document.getElementById('riddle-modal').style.display = 'none';
-    officialTurn = (officialTurn === 1) ? 2 : 1;
-    socket.emit('playerMove', { roomId: currentRoomId, positions, nextTurn: officialTurn });
+    
+    // LOGIC FIX: Only switch officialTurn if this was NOT a steal attempt
+    if (!isStealAttempt) {
+        officialTurn = (officialTurn === 1) ? 2 : 1;
+    }
+    
+    // Reset steal flag for next turn
+    isStealAttempt = false;
+
+    socket.emit('playerMove', { 
+        roomId: currentRoomId, 
+        positions: positions, 
+        nextTurn: officialTurn 
+    });
+    
     updateUI();
     syncStatus();
 }
@@ -208,6 +241,8 @@ function updateUI() {
 socket.on('updateBoard', (data) => {
     positions = data.positions;
     officialTurn = data.nextTurn;
+    isStealAttempt = false; // Ensure steal is reset when move arrives
+    document.getElementById('riddle-modal').style.display = 'none';
     updateUI();
     syncStatus();
 });
