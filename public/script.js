@@ -108,8 +108,9 @@ function syncStatus() {
     statusText.innerText = `${playerNames[officialTurn]}'s Turn`;
     statusText.style.color = (officialTurn === 1) ? "#e74c3c" : "#3498db";
     
-    // Only enable roll button if it's your turn AND no steal is happening
-    rollBtn.disabled = (officialTurn !== myPlayerNumber || isStealAttempt);
+    // Logic: Enable button only if it's your turn AND no modal is active
+    const isModalOpen = document.getElementById('riddle-modal').style.display === 'block';
+    rollBtn.disabled = (officialTurn !== myPlayerNumber || isModalOpen);
     rollBtn.innerText = (officialTurn === myPlayerNumber) ? "Roll for Riddle" : "Wait for turn";
 }
 
@@ -120,7 +121,6 @@ function showModal(riddle) {
     modalContent.style.backgroundColor = 'white';
     box.innerHTML = '';
     
-    // UI Visibility Logic
     if (myPlayerNumber === activeAnsweringPlayer) {
         document.getElementById('modal-title').innerText = isStealAttempt ? "✨ STEAL ATTEMPT! ✨" : "Your Riddle";
         [riddle.option_a, riddle.option_b, riddle.option_c, riddle.option_d].forEach(opt => {
@@ -152,13 +152,16 @@ function showModal(riddle) {
     }, 1000);
 
     modal.style.display = 'block';
+    syncStatus(); // Disable roll button while modal is open
 }
 
 function checkAnswer(selected, correct, riddleData) {
     clearInterval(timerInterval);
     if (selected === correct) {
+        // Move amount based on speed
         let move = (timeSpent <= 10) ? 3 : (timeSpent <= 15) ? 2 : 1;
         positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - move);
+        
         if (boosts.includes(positions[activeAnsweringPlayer])) {
             positions[activeAnsweringPlayer] = Math.max(1, positions[activeAnsweringPlayer] - 4);
         }
@@ -174,12 +177,12 @@ function handleFailure(riddleData) {
     
     setTimeout(() => {
         if (!isStealAttempt) {
-            // Player 1 failed, activate Trap if they are on one
+            // First failure (Normal turn)
             if (traps.includes(positions[officialTurn])) {
                 positions[officialTurn] = Math.min(100, positions[officialTurn] + 5);
             }
             
-            // Set up Steal for Player 2
+            // Switch to Steal Mode
             isStealAttempt = true;
             activeAnsweringPlayer = (officialTurn === 1) ? 2 : 1;
 
@@ -191,7 +194,7 @@ function handleFailure(riddleData) {
 
             showModal(riddleData);
         } else {
-            // Player 2 failed the steal
+            // Second failure (Steal attempt failed)
             finishTurn();
         }
     }, 600);
@@ -206,13 +209,17 @@ socket.on('receiveSteal', (data) => {
 function finishTurn() {
     document.getElementById('riddle-modal').style.display = 'none';
     
-    // TURN LOGIC FIX:
-    // If it was NOT a steal, we move to the next player's turn.
-    // If it WAS a steal, the next turn is naturally the stealer's turn anyway.
+    // THE CORE LOGIC FIX:
+    // 1. If it was a Normal Turn (isStealAttempt is false):
+    //    Move to the next player's turn.
+    // 2. If it was a Steal Attempt:
+    //    DO NOT change the officialTurn. The "Stealer" is already the next person in line.
+    
     if (!isStealAttempt) {
         officialTurn = (officialTurn === 1) ? 2 : 1;
     }
     
+    // We only reset the flag AFTER deciding if we change the turn
     isStealAttempt = false;
 
     socket.emit('playerMove', { 
