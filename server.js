@@ -8,7 +8,6 @@ require('dotenv').config();
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// DATABASE CONNECTION
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -19,10 +18,8 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
     if (err) console.error('❌ Database connection failed:', err.message);
-    else console.log('✅ Connected to Railway MySQL Database');
 });
 
-// RIDDLE API
 app.get('/api/riddle', (req, res) => {
     const query = 'SELECT * FROM riddles ORDER BY RAND() LIMIT 1';
     db.query(query, (err, results) => {
@@ -31,28 +28,39 @@ app.get('/api/riddle', (req, res) => {
     });
 });
 
-// SOCKET.IO ROOM & WAITING LOGIC
+// MULTIPLAYER LOGIC WITH NAMES
+const roomPlayers = {}; // Stores { roomId: [ {id, name}, {id, name} ] }
+
 io.on('connection', (socket) => {
-    socket.on('joinRoom', (roomId) => {
+    socket.on('joinRoom', (data) => {
+        const { roomId, playerName } = data;
         socket.join(roomId);
         
-        // Count players in this specific room
-        const clients = io.sockets.adapter.rooms.get(roomId);
-        const numClients = clients ? clients.size : 0;
+        if (!roomPlayers[roomId]) roomPlayers[roomId] = [];
+        
+        // Add player if not already in list
+        if (roomPlayers[roomId].length < 2) {
+            roomPlayers[roomId].push({ id: socket.id, name: playerName });
+        }
 
-        // Update everyone in that room with the new count
-        io.to(roomId).emit('playerCountUpdate', numClients);
+        io.to(roomId).emit('playerCountUpdate', {
+            count: roomPlayers[roomId].length,
+            players: roomPlayers[roomId] 
+        });
     });
 
     socket.on('startGameSignal', (roomId) => {
-        // Send signal to all players in room to switch from Waiting to Game screen
-        io.to(roomId).emit('initGame');
+        io.to(roomId).emit('initGame', roomPlayers[roomId]);
     });
 
     socket.on('playerMove', (data) => {
         socket.to(data.roomId).emit('updateBoard', data);
     });
+
+    socket.on('disconnect', () => {
+        // Simple cleanup could be added here
+    });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`🚀 Server: http://localhost:${PORT}`));
+http.listen(PORT, () => console.log(`🚀 Server running`));
