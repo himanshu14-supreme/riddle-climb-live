@@ -1,12 +1,14 @@
 const socket = io();
 
-// Local State (In a real app, this would come from a Database)
+// Local State
 let currentUser = {
+    isLoggedIn: false,
     name: "Guest",
     coins: 600, 
     xp: 0,
-    inventory: ['default'],
-    selectedAvatar: 'default'
+    inventory: ['avatar_default', 'ability_none'],
+    selectedAvatar: 'avatar_default',
+    selectedAbility: 'ability_none'
 };
 
 let currentRoomId = null;
@@ -14,10 +16,44 @@ let isHost = false;
 let timerInterval;
 
 // --- 1. AUTH & UI UPDATES ---
-function handleAuth(type) {
-    const userInp = document.getElementById('username-input').value.trim();
+function playGuest() {
+    const userInp = document.getElementById('guest-name').value.trim();
     currentUser.name = userInp || "Guest_" + Math.floor(Math.random() * 999);
-    
+    transitionToLobby();
+}
+
+function register() {
+    const user = document.getElementById('auth-user').value.trim();
+    const pass = document.getElementById('auth-pass').value.trim();
+    if (!user || !pass) return alert("Enter username and password!");
+    socket.emit('auth_register', { user, pass });
+}
+
+function login() {
+    const user = document.getElementById('auth-user').value.trim();
+    const pass = document.getElementById('auth-pass').value.trim();
+    if (!user || !pass) return alert("Enter username and password!");
+    socket.emit('auth_login', { user, pass });
+}
+
+socket.on('auth_success', (userData) => {
+    currentUser = {
+        isLoggedIn: true,
+        name: userData.username,
+        coins: userData.coins,
+        xp: userData.xp,
+        inventory: userData.inventory,
+        selectedAvatar: userData.selectedAvatar,
+        selectedAbility: userData.selectedAbility
+    };
+    transitionToLobby();
+});
+
+socket.on('auth_error', (msg) => {
+    document.getElementById('auth-message').innerText = msg;
+});
+
+function transitionToLobby() {
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('lobby').classList.remove('hidden');
     updateProfileUI();
@@ -33,34 +69,65 @@ function updateProfileUI() {
 function openShop() { document.getElementById('shop-modal').style.display = 'block'; }
 function openVault() {
     const list = document.getElementById('inventory-list');
-    list.innerHTML = currentUser.inventory.map(item => `
-        <div class="shop-item">
-            <div class="preview">${item === 'knight' ? '🛡️' : '👤'}</div>
-            <p>${item.toUpperCase()}</p>
-            <button class="menu-btn ${currentUser.selectedAvatar === item ? 'join-variant' : ''}" 
-                onclick="equipItem('${item}')">
-                ${currentUser.selectedAvatar === item ? 'Equipped' : 'Equip'}
-            </button>
-        </div>
-    `).join('');
+    list.innerHTML = currentUser.inventory.map(item => {
+        let isEquipped = (currentUser.selectedAvatar === item) || (currentUser.selectedAbility === item);
+        let icon = item.includes('knight') ? '🛡️' : (item.includes('fire_sword') ? '🔥' : '👤');
+        let label = item.replace('avatar_', '').replace('ability_', '').toUpperCase();
+
+        return `
+            <div class="shop-item">
+                <div class="preview">${icon}</div>
+                <p>${label}</p>
+                <button class="menu-btn ${isEquipped ? 'join-variant' : ''}" 
+                    onclick="equipItem('${item}')">
+                    ${isEquipped ? 'Equipped' : 'Equip'}
+                </button>
+            </div>
+        `;
+    }).join('');
     document.getElementById('vault-modal').style.display = 'block';
 }
 
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
 function buyItem(item, price) {
-    if (currentUser.coins >= price && !currentUser.inventory.includes(item)) {
+    if (currentUser.inventory.includes(item)) {
+        return alert("You already own this!");
+    }
+    if (currentUser.coins >= price) {
         currentUser.coins -= price;
         currentUser.inventory.push(item);
+        
+        // If logged in, save to server
+        if (currentUser.isLoggedIn) {
+            socket.emit('save_data', {
+                coins: currentUser.coins,
+                xp: currentUser.xp,
+                inventory: currentUser.inventory,
+                selectedAvatar: currentUser.selectedAvatar,
+                selectedAbility: currentUser.selectedAbility
+            });
+        }
+        
         updateProfileUI();
-        alert(`${item} purchased! Find it in your Vault.`);
+        alert(`Purchased! Find it in your Vault.`);
     } else {
-        alert("Cannot purchase: Insufficient coins or already owned.");
+        alert("Insufficient coins.");
     }
 }
 
 function equipItem(item) {
-    currentUser.selectedAvatar = item;
+    if (item.startsWith('avatar_')) currentUser.selectedAvatar = item;
+    if (item.startsWith('ability_')) currentUser.selectedAbility = item;
+    
+    if (currentUser.isLoggedIn) {
+        socket.emit('save_data', {
+            coins: currentUser.coins, xp: currentUser.xp,
+            inventory: currentUser.inventory,
+            selectedAvatar: currentUser.selectedAvatar,
+            selectedAbility: currentUser.selectedAbility
+        });
+    }
     openVault(); // Refresh UI
 }
 
@@ -71,7 +138,8 @@ function createRoom() {
     socket.emit('joinRoom', { 
         roomId: id, 
         playerName: currentUser.name, 
-        avatar: currentUser.selectedAvatar, // Send avatar to server
+        avatar: currentUser.selectedAvatar,
+        ability: currentUser.selectedAbility,
         maxPlayers: limit 
     });
     enterWaitingRoom(id);
@@ -83,7 +151,8 @@ function joinRoom() {
         socket.emit('joinRoom', { 
             roomId: id, 
             playerName: currentUser.name,
-            avatar: currentUser.selectedAvatar 
+            avatar: currentUser.selectedAvatar,
+            ability: currentUser.selectedAbility
         });
         enterWaitingRoom(id);
     }
@@ -105,9 +174,10 @@ socket.on('playerCountUpdate', (data) => {
     document.getElementById('player-count-text').innerText = `Players: ${data.count}/${data.max}`;
     document.getElementById('start-game-btn').disabled = !(isHost && data.count >= 2);
     
-    document.getElementById('player-list').innerHTML = data.players.map(p => 
-        `<li>${p.avatar === 'knight' ? '🛡️' : '👤'} ${p.name} ${p.id === socket.id ? '(You)' : ''}</li>`
-    ).join('');
+    document.getElementById('player-list').innerHTML = data.players.map(p => {
+        let icon = p.avatar === 'avatar_knight' ? '🛡️' : '👤';
+        return `<li>${icon} ${p.name} ${p.id === socket.id ? '(You)' : ''}</li>`
+    }).join('');
 });
 
 socket.on('initGame', (data) => {
@@ -118,8 +188,8 @@ socket.on('initGame', (data) => {
     data.players.forEach((p, i) => {
         const pDiv = document.getElementById(`player${i+1}`);
         pDiv.classList.remove('hidden');
-        pDiv.innerHTML = p.avatar === 'knight' ? '🛡️' : '👤';
-        if (p.avatar === 'knight') pDiv.classList.add('fire-active');
+        pDiv.innerHTML = p.avatar === 'avatar_knight' ? '🛡️' : '👤';
+        if (p.ability === 'ability_fire_sword') pDiv.classList.add('fire-active');
     });
     updateUI(data.players);
     syncRollButton();
@@ -148,7 +218,6 @@ socket.on('startRiddleRound', (riddle) => {
 });
 
 socket.on('abilityTriggered', (data) => {
-    // data.victimIdx is the index (0-3) of the player hit
     const victimDiv = document.getElementById(`player${data.victimIdx + 1}`);
     if (victimDiv) {
         victimDiv.classList.add('hit-effect');
@@ -167,7 +236,6 @@ socket.on('roundResults', (data) => {
 });
 
 socket.on('gameOver', (winner) => {
-    // Reward Logic
     if (winner.id === socket.id) {
         currentUser.coins += 100;
         currentUser.xp += 50;
@@ -175,6 +243,15 @@ socket.on('gameOver', (winner) => {
         currentUser.coins += 20;
         currentUser.xp += 10;
     }
+    
+    if (currentUser.isLoggedIn) {
+        socket.emit('save_data', {
+            coins: currentUser.coins, xp: currentUser.xp,
+            inventory: currentUser.inventory,
+            selectedAvatar: currentUser.selectedAvatar, selectedAbility: currentUser.selectedAbility
+        });
+    }
+
     updateProfileUI();
     alert(`🏆 ${winner.name} Reached the Summit!`);
     window.location.reload();
