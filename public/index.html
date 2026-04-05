@@ -63,16 +63,16 @@
     <div id="waiting-room" class="lobby-container hidden">
         <h2 id="wait-room-id" style="color: var(--accent-gold);"></h2>
         <p id="player-count-text">Waiting for rivals...</p>
-        <ul id="player-list" class="player-list-ui"></ul>
+        <ul id="player-list" class="player-list-ui" style="list-style: none; padding: 0; margin: 20px 0; text-align: left;"></ul>
         
         <div id="waiting-room-controls">
-            <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Commence Battle</button>
+            <button id="start-game-btn" class="menu-btn" onclick="requestStart()">Commence Battle</button>
             <div id="host-wait-msg" class="status-box-gray hidden">Waiting for host...</div>
         </div>
     </div>
 
     <div id="game-screen" class="game-container hidden">
-        <div id="status">The Climb Begins</div>
+        <div id="status" style="text-align: center; font-weight: 800; margin-bottom: 10px;">The Climb Begins</div>
         <div id="board" class="board-grid">
             <div id="player1" class="statue hidden"></div>
             <div id="player2" class="statue hidden"></div>
@@ -88,7 +88,7 @@
 
     <div id="riddle-modal" class="modal">
         <div class="modal-content glass-effect" style="max-width: 550px;">
-            <h3 id="modal-title" style="color: var(--accent-gold); margin-bottom: 5px;">SPEED ROUND</h3>
+            <h3 id="modal-title" style="color: var(--accent-gold);">SPEED ROUND</h3>
             <div id="timer-display">⏳ 30s</div>
             <p id="riddle-text"></p>
             <div id="options-box"></div>
@@ -97,31 +97,29 @@
 
     <div id="rules-modal" class="modal">
         <div class="modal-content glass-effect">
-            <h2 style="color: var(--accent-gold); margin-bottom: 15px;">How to Play</h2>
-            <div style="text-align: left; font-size: 0.95rem; line-height: 1.6; color: #cbd5e1;">
-                <p><b>🏁 The Goal:</b> Be the first to reach the end of the 100-step board.</p>
-                <p><b>⏱️ Riddles:</b> You have 30 seconds to answer. Answer fast to gain more ground!</p>
-                <p><b>🏃‍♂️ Scoring:</b> 
-                    <br>• 1st Correct: +3 steps
-                    <br>• 2nd Correct: +2 steps
-                    <br>• Others Correct: +1 step
-                    <br>• Wrong / Timeout: 0 steps
-                </p>
-                <p><b>⚔️ Abilities:</b> If you use a weapon (like the Fire Sword) and answer correctly, anyone on your exact tile gets knocked back 10 steps!</p>
+            <h2 style="color: var(--accent-gold);">How to Play</h2>
+            <div style="text-align: left; line-height: 1.6; color: #cbd5e1;">
+                <p>🏁 Reach step 1 to win!</p>
+                <p>⏱️ You have 30 seconds to answer. Fast answers move you further.</p>
+                <p>🛡️ Equipping items in the Vault can give you special effects.</p>
             </div>
-            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('rules-modal')">Understood</button>
+            <button class="menu-btn join-variant" onclick="closeModal('rules-modal')">Got it!</button>
         </div>
     </div>
 
     <div id="shop-modal" class="modal">
         <div class="modal-content glass-effect">
             <h2 style="color: var(--accent-gold);">The Armory</h2>
-            <h3 style="text-align: left; font-size: 1rem;">Avatars</h3>
-            <div class="shop-grid" style="margin-bottom: 20px;">
+            <div class="shop-grid">
                 <div class="shop-item">
                     <div class="preview">🛡️</div>
-                    <p>Knight (Avatar)</p>
+                    <p>Knight Avatar</p>
                     <button class="menu-btn" onclick="buyItem('avatar_knight', 300)">Buy (300 💰)</button>
+                </div>
+                <div class="shop-item">
+                    <div class="preview">🔥</div>
+                    <p>Fire Sword Ability</p>
+                    <button class="menu-btn" onclick="buyItem('ability_fire_sword', 500)">Buy (500 💰)</button>
                 </div>
             </div>
             <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('shop-modal')">Close</button>
@@ -131,7 +129,7 @@
     <div id="vault-modal" class="modal">
         <div class="modal-content glass-effect">
             <h2 style="color: var(--accent-gold);">Your Vault</h2>
-            <div id="inventory-list" class="shop-grid"></div>
+            <div id="inventory-list" class="shop-grid" style="max-height: 300px; overflow-y: auto;"></div>
             <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('vault-modal')">Close</button>
         </div>
     </div>
