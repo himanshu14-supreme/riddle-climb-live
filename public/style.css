@@ -1,4 +1,4 @@
-/* --- General Page Styling --- */
+/* --- 1. General & Layout --- */
 body { 
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
     background: #1a252f; 
@@ -17,13 +17,13 @@ body {
 }
 
 #status { 
-    font-size: 2rem; 
+    font-size: 2.2rem; 
     margin: 10px 0; 
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
     color: #f1c40f;
 }
 
-/* --- Lobby & Waiting Room Containers --- */
+/* --- 2. Menus & Containers --- */
 .lobby-container {
     background: #2c3e50;
     padding: 40px;
@@ -37,12 +37,13 @@ body {
 .lobby-container h1 { margin-bottom: 30px; color: #ecf0f1; }
 
 input[type="text"] {
-    width: 80%;
+    width: 85%;
     padding: 12px;
     margin: 10px 0;
     border-radius: 8px;
     border: none;
     font-size: 1rem;
+    outline: none;
 }
 
 .menu-btn {
@@ -55,13 +56,14 @@ input[type="text"] {
     cursor: pointer;
     transition: 0.3s;
     margin: 10px 5px;
-    width: 90%;
+    width: 95%;
+    font-weight: bold;
 }
 
 .menu-btn:hover:not(:disabled) { background: #2ecc71; transform: translateY(-2px); }
 .menu-btn:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
 
-/* --- Board & Players --- */
+/* --- 3. The Game Board --- */
 .board-grid { 
     position: relative; 
     width: 600px; 
@@ -71,6 +73,7 @@ input[type="text"] {
     background: #ecf0f1;
     border: 5px solid #34495e;
     border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
 }
 
 .cell { 
@@ -83,12 +86,14 @@ input[type="text"] {
     font-weight: bold;
 }
 
+/* --- 4. Player Statues --- */
 .statue { 
     position: absolute; 
     width: 35px; 
     height: 35px; 
     border-radius: 50%; 
     z-index: 10; 
+    /* Smooth "bouncy" movement */
     transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     border: 3px solid white;
     box-shadow: 0 4px 10px rgba(0,0,0,0.5);
@@ -97,7 +102,7 @@ input[type="text"] {
 .red-player { background: #e74c3c; }
 .blue-player { background: #3498db; }
 
-/* --- Riddle Modal Styling --- */
+/* --- 5. Riddle Modal --- */
 .modal { 
     display: none; 
     position: fixed; 
@@ -117,23 +122,24 @@ input[type="text"] {
     max-width: 500px; 
     margin: 100px auto;
     text-align: center;
-    box-shadow: 0 0 20px rgba(241, 196, 15, 0.5);
+    box-shadow: 0 0 25px rgba(241, 196, 15, 0.4);
 }
 
 #timer-display {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: bold;
     color: #e67e22;
     margin-bottom: 15px;
 }
 
 #riddle-text {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     margin-bottom: 25px;
     line-height: 1.4;
+    font-weight: 500;
 }
 
-/* --- Options Box Grid --- */
+/* 2x2 Grid for Answer Buttons */
 #options-box {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -148,7 +154,8 @@ input[type="text"] {
     border-radius: 10px;
     cursor: pointer;
     font-size: 1rem;
-    transition: 0.2s;
+    transition: background 0.3s, transform 0.1s;
+    font-weight: bold;
 }
 
 .option-btn:hover:not(:disabled) {
@@ -156,11 +163,52 @@ input[type="text"] {
     transform: scale(1.02);
 }
 
-.option-btn:disabled {
-    opacity: 0.8;
+/* --- 6. Standings Leaderboard Popup --- */
+.leaderboard-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #2c3e50;
+    padding: 25px;
+    border-radius: 20px;
+    border: 4px solid #f1c40f;
+    min-width: 300px;
+    z-index: 2000;
+    box-shadow: 0 0 50px rgba(0,0,0,0.9);
 }
 
-/* Player List in Waiting Room */
+.leaderboard-content h3 {
+    margin-top: 0;
+    color: #f1c40f;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 2px solid #34495e;
+    padding-bottom: 10px;
+}
+
+.leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 10px;
+    border-bottom: 1px solid #3e4f5f;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.leaderboard-row:last-child { border-bottom: none; }
+
+.step-count {
+    color: #2ecc71;
+    background: #1a252f;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+/* Waiting Room Player List */
 #player-list {
     list-style: none;
     padding: 0;
@@ -170,8 +218,9 @@ input[type="text"] {
 
 #player-list li {
     background: #34495e;
-    padding: 10px;
-    margin-bottom: 5px;
-    border-radius: 5px;
-    border-left: 4px solid #27ae60;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border-left: 5px solid #27ae60;
+    font-weight: bold;
 }
