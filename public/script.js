@@ -3,10 +3,8 @@ let myName = "", isHost = false, currentRoomId = null, maxPlayersAllowed = 2;
 let timerInterval;
 let hasAnswered = false; 
 
-// UI Toggle for Rules
 function toggleRules(show) {
-    const rulesModal = document.getElementById('rules-modal');
-    rulesModal.style.display = show ? 'block' : 'none';
+    document.getElementById('rules-modal').style.display = show ? 'block' : 'none';
 }
 
 function createRoom() {
@@ -55,7 +53,8 @@ socket.on('playerCountUpdate', (data) => {
 socket.on('initGame', (data) => {
     document.getElementById('waiting-room').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
-    generateBoard();
+    
+    generateBoard(); // CRITICAL: Generate board FIRST
     
     for(let i=1; i<=4; i++) {
         const pDiv = document.getElementById(`player${i}`);
@@ -63,13 +62,14 @@ socket.on('initGame', (data) => {
         else pDiv.classList.add('hidden');
     }
     
-    updateUI(data.players);
-    syncRollButton();
+    setTimeout(() => {
+        updateUI(data.players); // Then move avatars
+        syncRollButton();
+    }, 100);
 });
 
 function syncRollButton() {
     const rollBtn = document.getElementById('roll-btn');
-    rollBtn.style.display = 'block';
     if (isHost) {
         rollBtn.disabled = false;
         rollBtn.innerText = "Roll for Riddle";
@@ -86,7 +86,6 @@ socket.on('startRiddleRound', (riddle) => {
     const startTime = Date.now();
     hasAnswered = false; 
     
-    document.getElementById('modal-title').innerText = "SPEED ROUND!";
     document.getElementById('riddle-text').innerText = riddle.question;
     box.innerHTML = '';
 
@@ -100,14 +99,17 @@ socket.on('startRiddleRound', (riddle) => {
             const timeTaken = Date.now() - startTime;
             
             Array.from(box.children).forEach(b => b.disabled = true);
-            btn.style.background = "#f1c40f";
+            btn.style.background = "var(--accent-gold)";
+            btn.style.color = "var(--bg-dark)";
             socket.emit('submitAnswer', { roomId: currentRoomId, selected: opt, timeTaken });
         };
         box.appendChild(btn);
     });
 
-    let timeLeft = 30;
+    let timeLeft = 20; // Reduced to 20s for snappier gameplay
     clearInterval(timerInterval);
+    document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
+    
     timerInterval = setInterval(() => {
         timeLeft--;
         document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
@@ -128,18 +130,21 @@ socket.on('roundResults', (data) => {
     const buttons = box.querySelectorAll('.option-btn');
 
     buttons.forEach(btn => {
-        if (btn.innerText === data.correctAnswer) btn.style.background = "#27ae60";
-        else if (btn.style.background.includes("rgb(241, 196, 15)")) btn.style.background = "#e74c3c";
+        if (btn.innerText === data.correctAnswer) {
+            btn.style.background = "var(--accent-green)";
+        } else if (btn.style.background.includes("var(--accent-gold)")) {
+            btn.style.background = "var(--accent-red)";
+        }
     });
 
-    setTimeout(() => showMiniLeaderboard(data.results), 600);
+    setTimeout(() => showMiniLeaderboard(data.results), 800);
 
     setTimeout(() => {
         document.getElementById('leaderboard-overlay').classList.add('hidden');
         document.getElementById('riddle-modal').style.display = 'none';
         updateUI(data.players);
         syncRollButton();
-    }, 3500); 
+    }, 4000); 
 });
 
 function showMiniLeaderboard(results) {
@@ -149,7 +154,9 @@ function showMiniLeaderboard(results) {
     list.innerHTML = results.map((r, index) => `
         <div class="leaderboard-row">
             <span>#${index + 1} ${r.name}</span>
-            <span class="step-count">${r.isCorrect ? `+${r.steps} Steps` : 'Incorrect'}</span>
+            <span style="color: ${r.isCorrect ? 'var(--accent-green)' : 'var(--text-dim)'}; font-weight: bold;">
+                ${r.isCorrect ? `+${r.steps} Steps` : 'Incorrect'}
+            </span>
         </div>
     `).join('');
     overlay.classList.remove('hidden');
@@ -160,15 +167,16 @@ function updateUI(players) {
         const target = document.getElementById('cell-' + p.pos);
         const pDiv = document.getElementById('player' + (index + 1));
         if (target && pDiv) {
-            pDiv.style.left = (target.offsetLeft + (index * 8)) + 'px';
-            pDiv.style.top = (target.offsetTop + (index * 8)) + 'px';
+            // Offset avatars slightly based on index so they don't overlap perfectly
+            pDiv.style.left = (target.offsetLeft + 10 + (index * 4)) + 'px';
+            pDiv.style.top = (target.offsetTop + 10 + (index * 4)) + 'px';
         }
     });
 }
 
 function generateBoard() {
     const board = document.getElementById('board');
-    if (board.children.length > 4) return;
+    if (board.children.length > 4) return; // Prevent duplicate generation
     for (let i = 1; i <= 100; i++) {
         const cell = document.createElement('div');
         cell.className = 'cell';
@@ -178,6 +186,14 @@ function generateBoard() {
     }
 }
 
+// WIN CONDITION LISTENER
+socket.on('gameOver', (winner) => {
+    setTimeout(() => {
+        alert(`🏆 MATCH OVER! ${winner.name} has claimed victory!`);
+        window.location.reload();
+    }, 1000); // Wait 1 second for the final avatar jump to finish
+});
+
 socket.on('playerLeft', () => {
     alert("A player disconnected. The match has ended.");
     window.location.reload();
@@ -185,5 +201,4 @@ socket.on('playerLeft', () => {
 
 socket.on('error', (msg) => {
     alert(msg);
-    window.location.reload();
 });
