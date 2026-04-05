@@ -1,15 +1,12 @@
 const socket = io();
-
-let myName = "";
-let isHost = false;
-let currentRoomId = null;
-let playerList = [];
+let myName = "", isHost = false, currentRoomId = null, maxPlayersAllowed = 2;
 let timerInterval;
 
 function createRoom() {
     myName = document.getElementById('player-name-input').value.trim() || "Guest";
+    maxPlayersAllowed = document.getElementById('player-limit').value;
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
-    socket.emit('joinRoom', { roomId: id, playerName: myName });
+    socket.emit('joinRoom', { roomId: id, playerName: myName, maxPlayers: maxPlayersAllowed });
     enterWaitingRoom(id);
 }
 
@@ -30,37 +27,42 @@ function enterWaitingRoom(id) {
 }
 
 socket.on('playerCountUpdate', (data) => {
-    playerList = data.players;
-    const me = playerList.find(p => p.id === socket.id);
+    maxPlayersAllowed = data.max;
+    const me = data.players.find(p => p.id === socket.id);
     isHost = me ? me.isHost : false;
-    document.getElementById('player-count-text').innerText = `Players Joined: ${data.count}/2`;
-    document.getElementById('player-list').innerHTML = playerList.map(p => 
+    
+    document.getElementById('player-count-text').innerText = `Players Joined: ${data.count}/${data.max}`;
+    document.getElementById('player-list').innerHTML = data.players.map(p => 
         `<li>${p.isHost ? '👑' : '👤'} ${p.name} ${p.id === socket.id ? '(You)' : ''}</li>`
     ).join('');
+    
     document.getElementById('start-game-btn').disabled = !(isHost && data.count >= 2);
 });
 
-function requestStart() {
-    socket.emit('startGameSignal', currentRoomId);
-}
-
-socket.on('initGame', (players) => {
+socket.on('initGame', (data) => {
     document.getElementById('waiting-room').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
     generateBoard();
-    updateUI(players);
+    
+    // Show only the statues for players in the room
+    for(let i=1; i<=4; i++) {
+        const pDiv = document.getElementById(`player${i}`);
+        if (i <= data.players.length) pDiv.classList.remove('hidden');
+        else pDiv.classList.add('hidden');
+    }
+    
+    updateUI(data.players);
     syncRollButton();
 });
 
 function syncRollButton() {
     const rollBtn = document.getElementById('roll-btn');
+    rollBtn.style.display = 'block';
     if (isHost) {
-        rollBtn.style.display = 'block';
         rollBtn.disabled = false;
-        rollBtn.innerText = "Roll for Riddle (Everyone)";
+        rollBtn.innerText = "Roll for Riddle";
         rollBtn.onclick = () => socket.emit('requestRiddle', currentRoomId);
     } else {
-        rollBtn.style.display = 'block';
         rollBtn.disabled = true;
         rollBtn.innerText = "Waiting for Host...";
     }
@@ -82,7 +84,7 @@ socket.on('startRiddleRound', (riddle) => {
         btn.onclick = () => {
             const timeTaken = Date.now() - startTime;
             Array.from(box.children).forEach(b => b.disabled = true);
-            btn.style.background = "#f1c40f"; // Yellow for "Selected"
+            btn.style.background = "#f1c40f";
             socket.emit('submitAnswer', { roomId: currentRoomId, selected: opt, timeTaken });
         };
         box.appendChild(btn);
@@ -106,46 +108,31 @@ socket.on('roundResults', (data) => {
     const box = document.getElementById('options-box');
     const buttons = box.querySelectorAll('.option-btn');
 
-    // Color code results: Green for correct, Red for incorrect
     buttons.forEach(btn => {
-        if (btn.innerText === data.correctAnswer) {
-            btn.style.background = "#27ae60"; 
-            btn.style.color = "white";
-        } else if (btn.style.background.includes("rgb(241, 196, 15)")) { // if it was yellow/clicked
-             btn.style.background = "#e74c3c";
-             btn.style.color = "white";
-        }
+        if (btn.innerText === data.correctAnswer) btn.style.background = "#27ae60";
+        else if (btn.style.background.includes("rgb(241, 196, 15)")) btn.style.background = "#e74c3c";
     });
 
-    // Show leaderboard after a brief delay
-    setTimeout(() => {
-        showMiniLeaderboard(data.results);
-    }, 600);
+    setTimeout(() => showMiniLeaderboard(data.results), 600);
 
-    // Hide everything and update board after 1.5s
     setTimeout(() => {
         document.getElementById('leaderboard-overlay').classList.add('hidden');
         document.getElementById('riddle-modal').style.display = 'none';
         updateUI(data.players);
         syncRollButton();
-    }, 2500);
+    }, 2800);
 });
 
 function showMiniLeaderboard(results) {
     const overlay = document.getElementById('leaderboard-overlay');
     const list = document.getElementById('leaderboard-list');
-    
-    // Sort ascending by time
     results.sort((a, b) => a.time - b.time);
-
     list.innerHTML = results.map((r, index) => `
         <div class="leaderboard-row">
             <span>#${index + 1} ${r.name}</span>
-            <span>${r.time}s</span>
             <span class="step-count">+${r.steps} Steps</span>
         </div>
     `).join('');
-
     overlay.classList.remove('hidden');
 }
 
@@ -154,15 +141,15 @@ function updateUI(players) {
         const target = document.getElementById('cell-' + p.pos);
         const pDiv = document.getElementById('player' + (index + 1));
         if (target && pDiv) {
-            pDiv.style.left = target.offsetLeft + (index === 0 ? 5 : 20) + 'px';
-            pDiv.style.top = target.offsetTop + (index === 0 ? 5 : 20) + 'px';
+            pDiv.style.left = target.offsetLeft + (index * 10) + 'px';
+            pDiv.style.top = target.offsetTop + (index * 10) + 'px';
         }
     });
 }
 
 function generateBoard() {
     const board = document.getElementById('board');
-    if (board.children.length > 2) return;
+    if (board.children.length > 4) return;
     for (let i = 1; i <= 100; i++) {
         const cell = document.createElement('div');
         cell.className = 'cell';
@@ -171,8 +158,3 @@ function generateBoard() {
         board.appendChild(cell);
     }
 }
-
-socket.on('playerLeft', (data) => {
-    alert(`${data.name} left. Game Over.`);
-    window.location.reload();
-});
