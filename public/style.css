@@ -16,60 +16,72 @@ input[type="text"], input[type="password"], select {
     width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; box-sizing: border-box;
 }
 
-/* Lobby & Auth */
-/* Added relative positioning so the ? button anchors correctly inside the lobby box */
+/* Lobby Container */
 .lobby-container { position: relative; background: var(--glass-bg); padding: 40px; border-radius: 24px; width: 380px; text-align: center; box-shadow: 0 20px 25px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); margin-top: 50px; }
+
+/* Help Button - Professional Square Frame Top Right */
+.help-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+}
+.help-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--accent-gold); }
+
+/* Status Box for non-hosts */
+.status-box-gray {
+    background: #334155;
+    color: var(--text-dim);
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 700;
+    width: 100%;
+    text-align: center;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    margin-top: 10px;
+    box-sizing: border-box;
+}
+
 #user-stats-bar { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 12px; margin-bottom: 15px; color: var(--accent-gold); font-weight: bold; font-size: 0.9rem; }
 .nav-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
 .icon-btn { flex: 1; padding: 10px; background: #334155; border: 1px solid var(--glass-border); color: white; border-radius: 10px; cursor: pointer; font-weight: 600; }
 .divider { margin: 20px 0; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px; }
 
-/* Help Button styling */
-.help-btn { position: absolute; top: 15px; left: 15px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); transition: transform 0.2s; }
-.help-btn:hover { transform: scale(1.15); }
-
-/* Shop & Vault */
-.shop-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 10px; }
-.shop-item { background: rgba(15,23,42,0.5); padding: 15px; border-radius: 15px; border: 1px solid var(--glass-border); }
-.preview { font-size: 2rem; margin-bottom: 10px; }
-
 /* Game Board */
 .board-grid { position: relative; display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 16px; margin: 20px 0; }
 .cell { width: 50px; height: 50px; background: rgba(30, 41, 59, 0.4); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #94a3b8; }
 
-/* Avatars & Ability Effects */
 .statue { 
     position: absolute; width: 30px; height: 30px; border-radius: 8px; z-index: 100; 
     transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); border: 2px solid white;
     display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
 }
 .statue.fire-active { box-shadow: 0 0 20px #ff4500, 0 0 40px #ff8c00; border-color: #ff4500; }
-.hit-effect { animation: flash-red 0.5s ease-in-out; }
 
-@keyframes flash-red {
-    0%, 100% { filter: brightness(1); }
-    50% { filter: brightness(3) sepia(1) hue-rotate(-50deg); transform: scale(1.4); }
-}
-
-/* Modals */
-.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; backdrop-filter: blur(8px); }
-.modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-dark); border: 2px solid var(--accent-gold); padding: 30px; border-radius: 20px; width: 90%; max-width: 450px; text-align: center; }
-
-/* Riddle Specifics - Made Bigger and More Interactive */
+/* Riddle UI */
 #riddle-text { font-size: 1.4rem; font-weight: 700; margin: 20px 0; line-height: 1.4; color: white; }
 #timer-display { font-size: 1.8rem; font-weight: 800; color: var(--accent-red); margin: 10px 0; font-family: monospace;}
 
 .option-btn { width: 100%; padding: 16px; margin: 8px 0; border-radius: 12px; background: #334155; color: white; border: 2px solid var(--glass-border); font-size: 1.15rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .option-btn:hover:not(:disabled) { background: #475569; border-color: var(--accent-gold); transform: translateY(-2px); }
-.option-btn:disabled { cursor: not-allowed; opacity: 0.8; }
-
-/* Validation highlight colors */
-.option-btn.selected { border-color: var(--accent-gold); background: rgba(251, 191, 36, 0.2); }
-.option-btn.correct { background: var(--accent-green) !important; border-color: #059669 !important; color: white !important; box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); }
-.option-btn.wrong { background: var(--accent-red) !important; border-color: #dc2626 !important; color: white !important; }
+.option-btn.correct { background: var(--accent-green) !important; border-color: #059669 !important; box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); }
+.option-btn.wrong { background: var(--accent-red) !important; border-color: #dc2626 !important; }
 
 .menu-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; background: var(--accent-green); color: white; margin-top: 10px; }
+.menu-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .join-variant { background: transparent; border: 1px solid var(--accent-green); color: var(--accent-green); }
 
+/* Modal & Popups */
+.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; backdrop-filter: blur(8px); }
+.modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-dark); border: 2px solid var(--accent-gold); padding: 30px; border-radius: 20px; width: 90%; max-width: 450px; text-align: center; }
 .leaderboard-popup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10000; background: var(--bg-dark); border: 2px solid var(--accent-gold); padding: 20px; border-radius: 20px; min-width: 300px; }
-.leaderboard-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--glass-border); }
