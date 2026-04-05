@@ -191,10 +191,21 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const roomId = socketToRoom[socket.id];
         if (roomId && rooms[roomId]) {
+            // Feature 3: Find the player who left and emit to the room
+            const disconnectedPlayer = rooms[roomId].players.find(p => p.id === socket.id);
+            if (disconnectedPlayer) {
+                io.to(roomId).emit('playerDisconnected', disconnectedPlayer.name);
+            }
+
             rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
             if (rooms[roomId].players.length === 0) {
                 if (rooms[roomId].state) clearTimeout(rooms[roomId].state.timer);
                 delete rooms[roomId];
+            } else {
+                // If players remain, optionally re-emit the player count update so waiting rooms update dynamically
+                io.to(roomId).emit('playerCountUpdate', {
+                    count: rooms[roomId].players.length, max: rooms[roomId].maxPlayers, players: rooms[roomId].players 
+                });
             }
             delete socketToRoom[socket.id];
         }
