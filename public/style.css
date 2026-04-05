@@ -5,19 +5,26 @@
     --accent-red: #ef4444;
     --glass-bg: rgba(30, 41, 59, 0.9);
     --glass-border: rgba(255, 255, 255, 0.1);
+    --text-dim: #94a3b8;
 }
 
 body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: white; display: flex; flex-direction: column; align-items: center; margin: 0; min-height: 100vh; padding: 20px; }
 .hidden { display: none !important; }
+
+/* Inputs */
+input[type="text"], input[type="password"], select {
+    width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: white; box-sizing: border-box;
+}
 
 /* Lobby & Auth */
 .lobby-container { background: var(--glass-bg); padding: 40px; border-radius: 24px; width: 380px; text-align: center; box-shadow: 0 20px 25px rgba(0,0,0,0.3); border: 1px solid var(--glass-border); margin-top: 50px; }
 #user-stats-bar { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 12px; margin-bottom: 15px; color: var(--accent-gold); font-weight: bold; font-size: 0.9rem; }
 .nav-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
 .icon-btn { flex: 1; padding: 10px; background: #334155; border: 1px solid var(--glass-border); color: white; border-radius: 10px; cursor: pointer; font-weight: 600; }
+.divider { margin: 20px 0; color: var(--text-dim); font-size: 0.8rem; letter-spacing: 1px; }
 
 /* Shop & Vault */
-.shop-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 20px; }
+.shop-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 10px; }
 .shop-item { background: rgba(15,23,42,0.5); padding: 15px; border-radius: 15px; border: 1px solid var(--glass-border); }
 .preview { font-size: 2rem; margin-bottom: 10px; }
 
