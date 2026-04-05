@@ -130,4 +130,17 @@ input[type="text"]:focus { outline: none; border-color: var(--accent-gold); }
 .rules-list { text-align: left; line-height: 1.6; margin: 20px 0; }
 
 .leaderboard-popup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9998; border: 2px solid var(--accent-gold); }
-.leaderboard-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--glass-border); }
+/* Replace the existing .leaderboard-row with this */
+.leaderboard-row { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    padding: 12px 15px; 
+    border-bottom: 1px solid var(--glass-border); 
+    font-size: 0.95rem;
+    gap: 15px;
+}
+
+.lb-name { font-weight: bold; text-align: left; flex: 1; }
+.lb-time { color: var(--accent-gold); font-family: monospace; font-weight: 600; }
+.lb-steps { font-weight: bold; text-align: right; width: 80px; }
