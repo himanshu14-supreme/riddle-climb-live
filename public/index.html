@@ -8,6 +8,8 @@
 </head>
 <body>
     <div id="lobby" class="lobby-container">
+        <button class="help-circle" onclick="toggleRules(true)">?</button>
+        
         <h1>Riddle Climb</h1>
         <input type="text" id="player-name-input" placeholder="Your Name">
         
@@ -50,6 +52,25 @@
             <p id="timer-display"></p>
             <p id="riddle-text"></p>
             <div id="options-box"></div>
+        </div>
+    </div>
+
+    <div id="rules-modal" class="modal">
+        <div class="modal-content rules-content">
+            <h2>📜 How to Play</h2>
+            <ul class="rules-list">
+                <li><strong>Objective:</strong> Reach cell #1 to win the race!</li>
+                <li><strong>The Roll:</strong> The host rolls for a riddle. Everyone sees the same question.</li>
+                <li><strong>Speed Matters:</strong> The faster you answer correctly, the more steps you climb:
+                    <ul>
+                        <li>🥇 1st Correct: +3 Steps</li>
+                        <li>🥈 2nd Correct: +2 Steps</li>
+                        <li>🥉 3rd Correct: +1 Step</li>
+                    </ul>
+                </li>
+                <li><strong>Wrong Answers:</strong> No movement for incorrect guesses or timeouts.</li>
+            </ul>
+            <button class="menu-btn" onclick="toggleRules(false)">Got it!</button>
         </div>
     </div>
 
