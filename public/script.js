@@ -3,10 +3,13 @@ let myName = "", isHost = false, currentRoomId = null, maxPlayersAllowed = 2;
 let timerInterval;
 let hasAnswered = false; 
 
+// --- 1. UI HELPERS ---
 function toggleRules(show) {
-    document.getElementById('rules-modal').style.display = show ? 'block' : 'none';
+    const modal = document.getElementById('rules-modal');
+    if (modal) modal.style.display = show ? 'block' : 'none';
 }
 
+// --- 2. ROOM LOGIC ---
 function createRoom() {
     myName = document.getElementById('player-name-input').value.trim() || "Guest";
     maxPlayersAllowed = document.getElementById('player-limit').value;
@@ -37,6 +40,7 @@ function requestStart() {
     }
 }
 
+// --- 3. SOCKET LISTENERS (GAME FLOW) ---
 socket.on('playerCountUpdate', (data) => {
     maxPlayersAllowed = data.max;
     const me = data.players.find(p => p.id === socket.id);
@@ -54,16 +58,17 @@ socket.on('initGame', (data) => {
     document.getElementById('waiting-room').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
     
-    generateBoard(); // CRITICAL: Generate board FIRST
+    generateBoard(); // Ensure cells exist in DOM
     
-    for(let i=1; i<=4; i++) {
+    // Show/Hide player statues based on count
+    for(let i = 1; i <= 4; i++) {
         const pDiv = document.getElementById(`player${i}`);
         if (i <= data.players.length) pDiv.classList.remove('hidden');
         else pDiv.classList.add('hidden');
     }
     
     setTimeout(() => {
-        updateUI(data.players); // Then move avatars
+        updateUI(data.players); 
         syncRollButton();
     }, 100);
 });
@@ -80,6 +85,7 @@ function syncRollButton() {
     }
 }
 
+// --- 4. RIDDLE & LEADERBOARD LOGIC ---
 socket.on('startRiddleRound', (riddle) => {
     const modal = document.getElementById('riddle-modal');
     const box = document.getElementById('options-box');
@@ -89,7 +95,8 @@ socket.on('startRiddleRound', (riddle) => {
     document.getElementById('riddle-text').innerText = riddle.question;
     box.innerHTML = '';
 
-    [riddle.option_a, riddle.option_b, riddle.option_c, riddle.option_d].forEach(opt => {
+    const options = [riddle.option_a, riddle.option_b, riddle.option_c, riddle.option_d];
+    options.forEach(opt => {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.innerText = opt;
@@ -98,15 +105,17 @@ socket.on('startRiddleRound', (riddle) => {
             hasAnswered = true; 
             const timeTaken = Date.now() - startTime;
             
+            // Visual feedback for selection
             Array.from(box.children).forEach(b => b.disabled = true);
             btn.style.background = "var(--accent-gold)";
             btn.style.color = "var(--bg-dark)";
+            
             socket.emit('submitAnswer', { roomId: currentRoomId, selected: opt, timeTaken });
         };
         box.appendChild(btn);
     });
 
-    let timeLeft = 20; // Reduced to 20s for snappier gameplay
+    let timeLeft = 20;
     clearInterval(timerInterval);
     document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
     
@@ -117,7 +126,7 @@ socket.on('startRiddleRound', (riddle) => {
             clearInterval(timerInterval);
             if (!hasAnswered) {
                 hasAnswered = true;
-                socket.emit('submitAnswer', { roomId: currentRoomId, selected: null, timeTaken: 30000 });
+                socket.emit('submitAnswer', { roomId: currentRoomId, selected: null, timeTaken: 20000 });
             }
         }
     }, 1000);
@@ -129,6 +138,7 @@ socket.on('roundResults', (data) => {
     const box = document.getElementById('options-box');
     const buttons = box.querySelectorAll('.option-btn');
 
+    // 1. Highlight Correct/Wrong on the Riddle Modal
     buttons.forEach(btn => {
         if (btn.innerText === data.correctAnswer) {
             btn.style.background = "var(--accent-green)";
@@ -137,37 +147,48 @@ socket.on('roundResults', (data) => {
         }
     });
 
+    // 2. Wait 0.8s, then show the FAST Leaderboard
     setTimeout(() => showMiniLeaderboard(data.results), 800);
 
+    // 3. Keep leaderboard visible for 1s, then clear and move players
     setTimeout(() => {
         document.getElementById('leaderboard-overlay').classList.add('hidden');
         document.getElementById('riddle-modal').style.display = 'none';
         updateUI(data.players);
         syncRollButton();
-    }, 4000); 
+    }, 1800); 
 });
 
 function showMiniLeaderboard(results) {
     const overlay = document.getElementById('leaderboard-overlay');
     const list = document.getElementById('leaderboard-list');
+    
+    // Sort by fastest correct answers
     results.sort((a, b) => a.time - b.time);
+    
     list.innerHTML = results.map((r, index) => `
         <div class="leaderboard-row">
-            <span>#${index + 1} ${r.name}</span>
-            <span style="color: ${r.isCorrect ? 'var(--accent-green)' : 'var(--text-dim)'}; font-weight: bold;">
-                ${r.isCorrect ? `+${r.steps} Steps` : 'Incorrect'}
+            <span class="lb-name">#${index + 1} ${r.name}</span>
+            <span class="lb-time" style="color: ${r.isCorrect ? 'var(--accent-gold)' : 'var(--accent-red)'}">
+                ⏱️ ${r.isCorrect ? r.time + 's' : 'DNF'}
+            </span>
+            <span class="lb-steps" style="color: ${r.isCorrect ? 'var(--accent-green)' : 'var(--text-dim)'};">
+                ${r.isCorrect ? `+${r.steps} Steps` : '0 Steps'}
             </span>
         </div>
     `).join('');
+    
     overlay.classList.remove('hidden');
 }
 
+// --- 5. BOARD & MOVEMENT ---
 function updateUI(players) {
     players.forEach((p, index) => {
         const target = document.getElementById('cell-' + p.pos);
         const pDiv = document.getElementById('player' + (index + 1));
         if (target && pDiv) {
-            // Offset avatars slightly based on index so they don't overlap perfectly
+            // Precise positioning relative to board container
+            // We add a tiny offset per player (index*4) so they don't hide each other
             pDiv.style.left = (target.offsetLeft + 10 + (index * 4)) + 'px';
             pDiv.style.top = (target.offsetTop + 10 + (index * 4)) + 'px';
         }
@@ -176,7 +197,9 @@ function updateUI(players) {
 
 function generateBoard() {
     const board = document.getElementById('board');
-    if (board.children.length > 4) return; // Prevent duplicate generation
+    // Prevent re-generating if cells already exist
+    if (board.querySelectorAll('.cell').length > 0) return;
+
     for (let i = 1; i <= 100; i++) {
         const cell = document.createElement('div');
         cell.className = 'cell';
@@ -186,16 +209,16 @@ function generateBoard() {
     }
 }
 
-// WIN CONDITION LISTENER
+// --- 6. END GAME & ERRORS ---
 socket.on('gameOver', (winner) => {
     setTimeout(() => {
-        alert(`🏆 MATCH OVER! ${winner.name} has claimed victory!`);
+        alert(`🏆 MATCH OVER! ${winner.name} reached the summit first!`);
         window.location.reload();
-    }, 1000); // Wait 1 second for the final avatar jump to finish
+    }, 1000);
 });
 
 socket.on('playerLeft', () => {
-    alert("A player disconnected. The match has ended.");
+    alert("An opponent has retreated. The arena is closing.");
     window.location.reload();
 });
 
