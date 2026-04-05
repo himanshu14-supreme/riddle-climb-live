@@ -20,9 +20,53 @@ const rooms = {};
 const socketToRoom = {};
 
 io.on('connection', (socket) => {
+    
+    // --- AUTHENTICATION ---
+    socket.on('auth_register', (data) => {
+        const { user, pass } = data;
+        db.query('SELECT * FROM users WHERE username = ?', [user], (err, results) => {
+            if (results.length > 0) {
+                socket.emit('auth_error', 'Username already exists.');
+            } else {
+                db.query('INSERT INTO users (username, password) VALUES (?, ?)', [user, pass], (err, result) => {
+                    if (err) return socket.emit('auth_error', 'Database error.');
+                    socket.emit('auth_success', {
+                        username: user, coins: 600, xp: 0,
+                        inventory: ['avatar_default', 'ability_none'],
+                        selectedAvatar: 'avatar_default', selectedAbility: 'ability_none'
+                    });
+                });
+            }
+        });
+    });
 
+    socket.on('auth_login', (data) => {
+        const { user, pass } = data;
+        db.query('SELECT * FROM users WHERE username = ? AND password = ?', [user, pass], (err, results) => {
+            if (results.length > 0) {
+                const u = results[0];
+                socket.emit('auth_success', {
+                    username: u.username, coins: u.coins, xp: u.xp,
+                    inventory: typeof u.inventory === 'string' ? JSON.parse(u.inventory) : u.inventory,
+                    selectedAvatar: u.selectedAvatar, selectedAbility: u.selectedAbility
+                });
+                socket.username = u.username; // Track user internally for saving
+            } else {
+                socket.emit('auth_error', 'Invalid credentials.');
+            }
+        });
+    });
+
+    socket.on('save_data', (data) => {
+        if (socket.username) {
+            db.query(`UPDATE users SET coins = ?, xp = ?, inventory = ?, selectedAvatar = ?, selectedAbility = ? WHERE username = ?`,
+                [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, socket.username]);
+        }
+    });
+
+    // --- GAME LOGIC ---
     socket.on('joinRoom', (data) => {
-        const { roomId, playerName, maxPlayers, avatar } = data;
+        const { roomId, playerName, maxPlayers, avatar, ability } = data;
         
         if (!rooms[roomId]) {
             rooms[roomId] = { 
@@ -40,7 +84,8 @@ io.on('connection', (socket) => {
             room.players.push({ 
                 id: socket.id, 
                 name: playerName, 
-                avatar: avatar || 'default', // Store their chosen skin
+                avatar: avatar || 'avatar_default',
+                ability: ability || 'ability_none',
                 isHost: room.players.length === 0, 
                 pos: 100 
             });
@@ -61,7 +106,7 @@ io.on('connection', (socket) => {
     socket.on('requestRiddle', (roomId) => {
         const room = rooms[roomId];
         db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
-            if (err) return;
+            if (err || results.length === 0) return; // Add fallback if no riddles exist
             room.state = { answers: [], riddle: results[0] };
             io.to(roomId).emit('startRiddleRound', results[0]);
         });
@@ -71,7 +116,6 @@ io.on('connection', (socket) => {
         const room = rooms[data.roomId];
         if (!room || !room.state) return;
 
-        // Prevent double submission
         if (room.state.answers.find(a => a.id === socket.id)) return;
 
         room.state.answers.push({
@@ -95,11 +139,11 @@ io.on('connection', (socket) => {
                     steps = correctFound === 1 ? 3 : (correctFound === 2 ? 2 : 1);
                     player.pos = Math.max(1, player.pos - steps);
 
-                    // --- ABILITY LOGIC: FIRE SWORD ---
-                    if (player.avatar === 'knight') {
+                    // --- NEW ABILITY LOGIC: FIRE SWORD ---
+                    if (player.ability === 'ability_fire_sword') {
                         room.players.forEach((rival, idx) => {
                             if (rival.id !== player.id && rival.pos === player.pos) {
-                                rival.pos = Math.min(100, rival.pos + 10); // Knock back 10 steps
+                                rival.pos = Math.min(100, rival.pos + 10);
                                 io.to(data.roomId).emit('abilityTriggered', { victimIdx: idx });
                             }
                         });
