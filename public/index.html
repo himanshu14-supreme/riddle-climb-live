@@ -14,7 +14,7 @@
         <h1>Riddle Climb</h1>
         
         <div class="input-group">
-            <input type="text" id="player-name-input" placeholder="Enter Nickname">
+            <input type="text" id="player-name-input" placeholder="Enter Nickname" maxlength="15">
             
             <div class="capacity-select">
                 <label for="player-limit">Arena Size:</label>
@@ -27,9 +27,9 @@
         </div>
 
         <button class="menu-btn" onclick="createRoom()">Create Arena</button>
-        <div style="margin: 15px 0; color: var(--text-dim); font-size: 0.8rem; font-weight: 600;">OR</div>
+        <div class="divider">OR</div>
         
-        <input type="text" id="room-input" placeholder="Enter Room ID">
+        <input type="text" id="room-input" placeholder="Enter Room ID" maxlength="6">
         <button class="menu-btn join-variant" onclick="joinRoom()">Join Match</button>
     </div>
 
@@ -43,8 +43,8 @@
     <div id="game-screen" class="game-container hidden">
         <div id="status">The Climb Begins</div>
         <div id="board" class="board-grid">
-            <div id="player1" class="statue red-player"></div>
-            <div id="player2" class="statue blue-player"></div>
+            <div id="player1" class="statue red-player hidden"></div>
+            <div id="player2" class="statue blue-player hidden"></div>
             <div id="player3" class="statue green-player hidden"></div>
             <div id="player4" class="statue yellow-player hidden"></div>
         </div>
@@ -56,8 +56,7 @@
             <h3 id="modal-title" style="color: var(--accent-gold);">SPEED ROUND!</h3>
             <p id="timer-display" style="font-weight: 800; font-size: 1.2rem;"></p>
             <p id="riddle-text" style="font-size: 1.1rem; margin: 20px 0; line-height: 1.5;"></p>
-            <div id="options-box">
-                </div>
+            <div id="options-box"></div>
         </div>
     </div>
 
@@ -82,9 +81,8 @@
 
     <div id="leaderboard-overlay" class="leaderboard-popup hidden">
         <div class="leaderboard-content">
-            <h3 style="margin-top: 0;">Round Standings</h3>
-            <div id="leaderboard-list">
-                </div>
+            <h3 style="margin-top: 0; color: var(--accent-gold);">Round Standings</h3>
+            <div id="leaderboard-list"></div>
         </div>
     </div>
 
