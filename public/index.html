@@ -3,30 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Riddle Climb: Competitive</title>
+    <title>Riddle Climb: Arena</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="lobby" class="lobby-container">
         <h1>Riddle Climb</h1>
         <input type="text" id="player-name-input" placeholder="Your Name">
+        
+        <div class="capacity-select">
+            <label for="player-limit">Players:</label>
+            <select id="player-limit">
+                <option value="2">2 Players</option>
+                <option value="3">3 Players</option>
+                <option value="4">4 Players</option>
+            </select>
+        </div>
+
         <button class="menu-btn" onclick="createRoom()">Create Room</button>
+        <hr>
         <input type="text" id="room-input" placeholder="Room ID">
         <button class="menu-btn" onclick="joinRoom()">Join Room</button>
     </div>
 
     <div id="waiting-room" class="lobby-container hidden">
         <h2 id="wait-room-id"></h2>
-        <p id="player-count-text">Players Joined: 0/2</p>
+        <p id="player-count-text">Players Joined: 0/0</p>
         <ul id="player-list"></ul>
         <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Start Game</button>
     </div>
 
     <div id="game-screen" class="game-container hidden">
-        <h1 id="status">Competitive Mode</h1>
+        <h1 id="status">Multiplayer Match</h1>
         <div id="board" class="board-grid">
             <div id="player1" class="statue red-player"></div>
             <div id="player2" class="statue blue-player"></div>
+            <div id="player3" class="statue green-player hidden"></div>
+            <div id="player4" class="statue yellow-player hidden"></div>
         </div>
         <button id="roll-btn" class="menu-btn">Roll for Riddle</button>
     </div>
