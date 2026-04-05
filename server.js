@@ -18,107 +18,115 @@ const db = mysql.createPool({
     connectionLimit: 10
 });
 
-const roomPlayers = {}; 
-const roomStates = {}; 
+const rooms = {}; // Structure: { roomId: { players: [], maxPlayers: 2, state: {} } }
 const socketToRoom = {};
 
 io.on('connection', (socket) => {
     socket.on('joinRoom', (data) => {
-        const { roomId, playerName } = data;
-        socket.join(roomId);
-        socketToRoom[socket.id] = roomId;
+        const { roomId, playerName, maxPlayers } = data;
         
-        if (!roomPlayers[roomId]) roomPlayers[roomId] = [];
-        
-        if (roomPlayers[roomId].length < 2) {
-            const isHost = roomPlayers[roomId].length === 0;
-            roomPlayers[roomId].push({ 
+        // If room doesn't exist, host is creating it
+        if (!rooms[roomId]) {
+            rooms[roomId] = { 
+                players: [], 
+                maxPlayers: parseInt(maxPlayers) || 2, 
+                state: null 
+            };
+        }
+
+        const room = rooms[roomId];
+
+        // Check if room is full
+        if (room.players.length < room.maxPlayers) {
+            socket.join(roomId);
+            socketToRoom[socket.id] = roomId;
+            
+            const isHost = room.players.length === 0;
+            room.players.push({ 
                 id: socket.id, 
                 name: playerName || "Guest", 
                 isHost: isHost, 
                 pos: 100 
             });
-        }
 
-        io.to(roomId).emit('playerCountUpdate', {
-            count: roomPlayers[roomId].length,
-            players: roomPlayers[roomId] 
-        });
+            io.to(roomId).emit('playerCountUpdate', {
+                count: room.players.length,
+                max: room.maxPlayers,
+                players: room.players 
+            });
+        } else {
+            socket.emit('error', 'Room is full');
+        }
     });
 
     socket.on('startGameSignal', (roomId) => {
-        io.to(roomId).emit('initGame', roomPlayers[roomId]);
+        const room = rooms[roomId];
+        if (room && room.players.length >= 2) {
+            io.to(roomId).emit('initGame', { players: room.players, max: room.maxPlayers });
+        }
     });
 
     socket.on('requestRiddle', (roomId) => {
         db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
             if (err || results.length === 0) return;
-            const riddle = results[0];
-            roomStates[roomId] = { answers: [], riddle: riddle };
-            io.to(roomId).emit('startRiddleRound', riddle);
+            rooms[roomId].state = { answers: [], riddle: results[0] };
+            io.to(roomId).emit('startRiddleRound', results[0]);
         });
     });
 
     socket.on('submitAnswer', (data) => {
         const { roomId, selected, timeTaken } = data;
-        const state = roomStates[roomId];
-        if (!state) return;
+        const room = rooms[roomId];
+        if (!room || !room.state) return;
 
-        state.answers.push({
+        room.state.answers.push({
             socketId: socket.id,
-            selected: selected,
-            isCorrect: selected === state.riddle.answer,
+            isCorrect: selected === room.state.riddle.answer,
             time: timeTaken
         });
 
-        // Wait until all players have submitted
-        if (state.answers.length === roomPlayers[roomId].length) {
-            const players = roomPlayers[roomId];
-            const roundData = [];
+        if (room.state.answers.length === room.players.length) {
+            const sortedAnswers = [...room.state.answers].sort((a, b) => a.time - b.time);
+            const results = [];
 
-            // Sort by fastest time
-            const sortedAnswers = [...state.answers].sort((a, b) => a.time - b.time);
-            
-            let correctCount = 0;
+            let correctFound = 0;
             sortedAnswers.forEach((ans) => {
-                const player = players.find(p => p.id === ans.socketId);
-                let stepsGranted = 0;
+                const player = room.players.find(p => p.id === ans.socketId);
+                let steps = 0;
 
                 if (ans.isCorrect) {
-                    correctCount++;
-                    // Rank 1: 2 steps, Rank 2: 1 step
-                    stepsGranted = (correctCount === 1) ? 2 : 1; 
-                    player.pos = Math.max(1, player.pos - stepsGranted);
+                    correctFound++;
+                    // Logic: 1st=3, 2nd=2, 3rd=1, 4th=0
+                    if (correctFound === 1) steps = 3;
+                    else if (correctFound === 2) steps = 2;
+                    else if (correctFound === 3) steps = 1;
+                    
+                    player.pos = Math.max(1, player.pos - steps);
                 }
 
-                roundData.push({
-                    name: player.name,
-                    isCorrect: ans.isCorrect,
-                    time: (ans.time / 1000).toFixed(2),
-                    steps: stepsGranted,
-                    selected: ans.selected
-                });
+                results.push({ name: player.name, time: (ans.time / 1000).toFixed(2), steps, isCorrect: ans.isCorrect });
             });
 
             io.to(roomId).emit('roundResults', { 
-                players: players, 
-                results: roundData,
-                correctAnswer: state.riddle.answer 
+                players: room.players, 
+                results: results,
+                correctAnswer: room.state.riddle.answer 
             });
-            delete roomStates[roomId];
+            room.state = null;
         }
     });
 
     socket.on('disconnect', () => {
         const roomId = socketToRoom[socket.id];
-        if (roomId && roomPlayers[roomId]) {
-            const leaver = roomPlayers[roomId].find(p => p.id === socket.id);
-            if (leaver) socket.to(roomId).emit('playerLeft', { name: leaver.name });
-            roomPlayers[roomId] = roomPlayers[roomId].filter(p => p.id !== socket.id);
-            delete socketToRoom[socket.id];
+        if (roomId && rooms[roomId]) {
+            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
+            if (rooms[roomId].players.length === 0) delete rooms[roomId];
+            else {
+                io.to(roomId).emit('playerLeft', { id: socket.id });
+            }
         }
     });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`🚀 Server on ${PORT}`));
+http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
