@@ -1,6 +1,6 @@
-/* --- 1. General & Layout --- */
+/* --- 1. Base Reset & Typography --- */
 body { 
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
     background: #1a252f; 
     color: white; 
     display: flex; 
@@ -11,19 +11,20 @@ body {
     overflow-x: hidden;
 }
 
-/* CRITICAL: Visibility Control */
+/* Visibility Utility */
 .hidden { 
     display: none !important; 
 }
 
 #status { 
-    font-size: 2.2rem; 
+    font-size: 2rem; 
     margin: 10px 0; 
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
     color: #f1c40f;
+    text-align: center;
 }
 
-/* --- 2. Menus & Containers --- */
+/* --- 2. Menus & Lobby --- */
 .lobby-container {
     background: #2c3e50;
     padding: 40px;
@@ -34,7 +35,7 @@ body {
     margin-top: 50px;
 }
 
-.lobby-container h1 { margin-bottom: 30px; color: #ecf0f1; }
+.lobby-container h1 { margin-bottom: 25px; color: #ecf0f1; }
 
 input[type="text"] {
     width: 85%;
@@ -44,6 +45,25 @@ input[type="text"] {
     border: none;
     font-size: 1rem;
     outline: none;
+}
+
+/* Capacity Selection Styling */
+.capacity-select {
+    margin: 15px 0;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+#player-limit {
+    padding: 8px;
+    border-radius: 5px;
+    background: #34495e;
+    color: white;
+    border: 1px solid #7f8c8d;
+    cursor: pointer;
 }
 
 .menu-btn {
@@ -63,7 +83,26 @@ input[type="text"] {
 .menu-btn:hover:not(:disabled) { background: #2ecc71; transform: translateY(-2px); }
 .menu-btn:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
 
-/* --- 3. The Game Board --- */
+hr { border: 0; border-top: 1px solid #3e4f5f; margin: 20px 0; }
+
+/* --- 3. Waiting Room List --- */
+#player-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    text-align: left;
+}
+
+#player-list li {
+    background: #34495e;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border-left: 5px solid #27ae60;
+    font-weight: bold;
+}
+
+/* --- 4. The Game Board --- */
 .board-grid { 
     position: relative; 
     width: 600px; 
@@ -73,7 +112,7 @@ input[type="text"] {
     background: #ecf0f1;
     border: 5px solid #34495e;
     border-radius: 10px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    box-shadow: 0 0 25px rgba(0,0,0,0.4);
 }
 
 .cell { 
@@ -86,23 +125,25 @@ input[type="text"] {
     font-weight: bold;
 }
 
-/* --- 4. Player Statues --- */
+/* --- 5. Player Statues --- */
 .statue { 
     position: absolute; 
-    width: 35px; 
-    height: 35px; 
+    width: 32px; 
+    height: 32px; 
     border-radius: 50%; 
     z-index: 10; 
-    /* Smooth "bouncy" movement */
-    transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    /* Bouncy movement effect */
+    transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     border: 3px solid white;
     box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 
 .red-player { background: #e74c3c; }
 .blue-player { background: #3498db; }
+.green-player { background: #2ecc71; }
+.yellow-player { background: #f1c40f; }
 
-/* --- 5. Riddle Modal --- */
+/* --- 6. Riddle Modal & Options --- */
 .modal { 
     display: none; 
     position: fixed; 
@@ -120,26 +161,26 @@ input[type="text"] {
     border-radius: 20px; 
     width: 90%;
     max-width: 500px; 
-    margin: 100px auto;
+    margin: 80px auto;
     text-align: center;
-    box-shadow: 0 0 25px rgba(241, 196, 15, 0.4);
+    box-shadow: 0 0 30px rgba(241, 196, 15, 0.4);
 }
 
 #timer-display {
     font-size: 1.6rem;
     font-weight: bold;
     color: #e67e22;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 #riddle-text {
     font-size: 1.3rem;
     margin-bottom: 25px;
-    line-height: 1.4;
+    line-height: 1.5;
     font-weight: 500;
 }
 
-/* 2x2 Grid for Answer Buttons */
+/* 2x2 Grid Layout for Buttons */
 #options-box {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -150,8 +191,8 @@ input[type="text"] {
     background: #34495e;
     color: white;
     border: none;
-    padding: 15px;
-    border-radius: 10px;
+    padding: 18px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 1rem;
     transition: background 0.3s, transform 0.1s;
@@ -160,10 +201,15 @@ input[type="text"] {
 
 .option-btn:hover:not(:disabled) {
     background: #2c3e50;
-    transform: scale(1.02);
+    transform: scale(1.03);
 }
 
-/* --- 6. Standings Leaderboard Popup --- */
+.option-btn:disabled {
+    cursor: default;
+    opacity: 1; /* Keep visibility high for color feedback */
+}
+
+/* --- 7. Round Standings Leaderboard --- */
 .leaderboard-popup {
     position: fixed;
     top: 50%;
@@ -173,9 +219,9 @@ input[type="text"] {
     padding: 25px;
     border-radius: 20px;
     border: 4px solid #f1c40f;
-    min-width: 300px;
+    min-width: 320px;
     z-index: 2000;
-    box-shadow: 0 0 50px rgba(0,0,0,0.9);
+    box-shadow: 0 0 60px rgba(0,0,0,0.9);
 }
 
 .leaderboard-content h3 {
@@ -184,7 +230,7 @@ input[type="text"] {
     text-align: center;
     text-transform: uppercase;
     letter-spacing: 2px;
-    border-bottom: 2px solid #34495e;
+    border-bottom: 2px solid #3e4f5f;
     padding-bottom: 10px;
 }
 
@@ -192,7 +238,7 @@ input[type="text"] {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 10px;
+    padding: 12px 15px;
     border-bottom: 1px solid #3e4f5f;
     font-weight: bold;
     font-size: 1.1rem;
@@ -203,24 +249,7 @@ input[type="text"] {
 .step-count {
     color: #2ecc71;
     background: #1a252f;
-    padding: 4px 12px;
+    padding: 5px 12px;
     border-radius: 8px;
     font-size: 0.9rem;
-}
-
-/* Waiting Room Player List */
-#player-list {
-    list-style: none;
-    padding: 0;
-    margin: 20px 0;
-    text-align: left;
-}
-
-#player-list li {
-    background: #34495e;
-    padding: 12px;
-    margin-bottom: 8px;
-    border-radius: 8px;
-    border-left: 5px solid #27ae60;
-    font-weight: bold;
 }
