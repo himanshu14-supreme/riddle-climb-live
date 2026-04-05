@@ -18,14 +18,13 @@ const db = mysql.createPool({
     connectionLimit: 10
 });
 
-const rooms = {}; // Structure: { roomId: { players: [], maxPlayers: 2, state: {} } }
+const rooms = {}; 
 const socketToRoom = {};
 
 io.on('connection', (socket) => {
     socket.on('joinRoom', (data) => {
         const { roomId, playerName, maxPlayers } = data;
         
-        // If room doesn't exist, host is creating it
         if (!rooms[roomId]) {
             rooms[roomId] = { 
                 players: [], 
@@ -36,7 +35,6 @@ io.on('connection', (socket) => {
 
         const room = rooms[roomId];
 
-        // Check if room is full
         if (room.players.length < room.maxPlayers) {
             socket.join(roomId);
             socketToRoom[socket.id] = roomId;
@@ -55,7 +53,7 @@ io.on('connection', (socket) => {
                 players: room.players 
             });
         } else {
-            socket.emit('error', 'Room is full');
+            socket.emit('error', 'Room is full or game already started.');
         }
     });
 
@@ -79,10 +77,15 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         if (!room || !room.state) return;
 
+        // BUG FIX: Prevent double-submission from the same player
+        const alreadyAnswered = room.state.answers.find(a => a.socketId === socket.id);
+        if (alreadyAnswered) return;
+
         room.state.answers.push({
             socketId: socket.id,
             isCorrect: selected === room.state.riddle.answer,
-            time: timeTaken
+            time: timeTaken,
+            selected: selected // Added to track what they clicked
         });
 
         if (room.state.answers.length === room.players.length) {
@@ -96,7 +99,6 @@ io.on('connection', (socket) => {
 
                 if (ans.isCorrect) {
                     correctFound++;
-                    // Logic: 1st=3, 2nd=2, 3rd=1, 4th=0
                     if (correctFound === 1) steps = 3;
                     else if (correctFound === 2) steps = 2;
                     else if (correctFound === 3) steps = 1;
@@ -104,7 +106,12 @@ io.on('connection', (socket) => {
                     player.pos = Math.max(1, player.pos - steps);
                 }
 
-                results.push({ name: player.name, time: (ans.time / 1000).toFixed(2), steps, isCorrect: ans.isCorrect });
+                results.push({ 
+                    name: player.name, 
+                    time: (ans.time / 1000).toFixed(2), 
+                    steps, 
+                    isCorrect: ans.isCorrect 
+                });
             });
 
             io.to(roomId).emit('roundResults', { 
@@ -120,13 +127,15 @@ io.on('connection', (socket) => {
         const roomId = socketToRoom[socket.id];
         if (roomId && rooms[roomId]) {
             rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            if (rooms[roomId].players.length === 0) delete rooms[roomId];
-            else {
+            if (rooms[roomId].players.length === 0) {
+                delete rooms[roomId];
+            } else {
                 io.to(roomId).emit('playerLeft', { id: socket.id });
             }
+            delete socketToRoom[socket.id];
         }
     });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+http.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
