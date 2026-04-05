@@ -71,7 +71,7 @@ socket.on('startRiddleRound', (riddle) => {
     const box = document.getElementById('options-box');
     const startTime = Date.now();
     
-    document.getElementById('modal-title').innerText = "QUICKEST WINS!";
+    document.getElementById('modal-title').innerText = "SPEED ROUND!";
     document.getElementById('riddle-text').innerText = riddle.question;
     box.innerHTML = '';
 
@@ -82,7 +82,7 @@ socket.on('startRiddleRound', (riddle) => {
         btn.onclick = () => {
             const timeTaken = Date.now() - startTime;
             Array.from(box.children).forEach(b => b.disabled = true);
-            btn.style.background = "#f1c40f";
+            btn.style.background = "#f1c40f"; // Yellow for "Selected"
             socket.emit('submitAnswer', { roomId: currentRoomId, selected: opt, timeTaken });
         };
         box.appendChild(btn);
@@ -103,10 +103,51 @@ socket.on('startRiddleRound', (riddle) => {
 
 socket.on('roundResults', (data) => {
     clearInterval(timerInterval);
-    document.getElementById('riddle-modal').style.display = 'none';
-    updateUI(data.players);
-    syncRollButton();
+    const box = document.getElementById('options-box');
+    const buttons = box.querySelectorAll('.option-btn');
+
+    // Color code results: Green for correct, Red for incorrect
+    buttons.forEach(btn => {
+        if (btn.innerText === data.correctAnswer) {
+            btn.style.background = "#27ae60"; 
+            btn.style.color = "white";
+        } else if (btn.style.background.includes("rgb(241, 196, 15)")) { // if it was yellow/clicked
+             btn.style.background = "#e74c3c";
+             btn.style.color = "white";
+        }
+    });
+
+    // Show leaderboard after a brief delay
+    setTimeout(() => {
+        showMiniLeaderboard(data.results);
+    }, 600);
+
+    // Hide everything and update board after 1.5s
+    setTimeout(() => {
+        document.getElementById('leaderboard-overlay').classList.add('hidden');
+        document.getElementById('riddle-modal').style.display = 'none';
+        updateUI(data.players);
+        syncRollButton();
+    }, 2500);
 });
+
+function showMiniLeaderboard(results) {
+    const overlay = document.getElementById('leaderboard-overlay');
+    const list = document.getElementById('leaderboard-list');
+    
+    // Sort ascending by time
+    results.sort((a, b) => a.time - b.time);
+
+    list.innerHTML = results.map((r, index) => `
+        <div class="leaderboard-row">
+            <span>#${index + 1} ${r.name}</span>
+            <span>${r.time}s</span>
+            <span class="step-count">+${r.steps} Steps</span>
+        </div>
+    `).join('');
+
+    overlay.classList.remove('hidden');
+}
 
 function updateUI(players) {
     players.forEach((p, index) => {
