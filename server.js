@@ -50,7 +50,7 @@ io.on('connection', (socket) => {
                     inventory: typeof u.inventory === 'string' ? JSON.parse(u.inventory) : u.inventory,
                     selectedAvatar: u.selectedAvatar, selectedAbility: u.selectedAbility
                 });
-                socket.username = u.username; // Track user internally for saving
+                socket.username = u.username;
             } else {
                 socket.emit('auth_error', 'Invalid credentials.');
             }
@@ -82,18 +82,13 @@ io.on('connection', (socket) => {
             socketToRoom[socket.id] = roomId;
             
             room.players.push({ 
-                id: socket.id, 
-                name: playerName, 
-                avatar: avatar || 'avatar_default',
-                ability: ability || 'ability_none',
-                isHost: room.players.length === 0, 
-                pos: 100 
+                id: socket.id, name: playerName, 
+                avatar: avatar || 'avatar_default', ability: ability || 'ability_none',
+                isHost: room.players.length === 0, pos: 100 
             });
 
             io.to(roomId).emit('playerCountUpdate', {
-                count: room.players.length, 
-                max: room.maxPlayers, 
-                players: room.players 
+                count: room.players.length, max: room.maxPlayers, players: room.players 
             });
         }
     });
@@ -106,8 +101,14 @@ io.on('connection', (socket) => {
     socket.on('requestRiddle', (roomId) => {
         const room = rooms[roomId];
         db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
-            if (err || results.length === 0) return; // Add fallback if no riddles exist
-            room.state = { answers: [], riddle: results[0] };
+            if (err || results.length === 0) return; 
+            
+            // Start server-side timeout buffer (31 seconds)
+            room.state = { 
+                answers: [], 
+                riddle: results[0],
+                timer: setTimeout(() => evaluateRound(roomId), 31000) 
+            };
             io.to(roomId).emit('startRiddleRound', results[0]);
         });
     });
@@ -121,57 +122,80 @@ io.on('connection', (socket) => {
         room.state.answers.push({
             id: socket.id,
             isCorrect: (data.selected === room.state.riddle.answer),
-            time: data.timeTaken
+            time: data.timeTaken || 30000
         });
 
+        // If everyone answered before the timeout, evaluate early
         if (room.state.answers.length === room.players.length) {
-            const sorted = [...room.state.answers].sort((a, b) => a.time - b.time);
-            const results = [];
-            let correctFound = 0;
-            let winner = null;
-
-            sorted.forEach((ans) => {
-                const player = room.players.find(p => p.id === ans.id);
-                let steps = 0;
-
-                if (ans.isCorrect) {
-                    correctFound++;
-                    steps = correctFound === 1 ? 3 : (correctFound === 2 ? 2 : 1);
-                    player.pos = Math.max(1, player.pos - steps);
-
-                    // --- NEW ABILITY LOGIC: FIRE SWORD ---
-                    if (player.ability === 'ability_fire_sword') {
-                        room.players.forEach((rival, idx) => {
-                            if (rival.id !== player.id && rival.pos === player.pos) {
-                                rival.pos = Math.min(100, rival.pos + 10);
-                                io.to(data.roomId).emit('abilityTriggered', { victimIdx: idx });
-                            }
-                        });
-                    }
-
-                    if (player.pos === 1 && !winner) winner = player;
-                }
-
-                results.push({ name: player.name, time: (ans.time/1000).toFixed(2), steps, isCorrect: ans.isCorrect });
-            });
-
-            io.to(data.roomId).emit('roundResults', { players: room.players, results });
-            
-            if (winner) {
-                setTimeout(() => {
-                    io.to(data.roomId).emit('gameOver', winner);
-                    delete rooms[data.roomId];
-                }, 2500);
-            }
-            room.state = null;
+            evaluateRound(data.roomId);
         }
     });
+
+    // Centralized logic to evaluate rounds
+    function evaluateRound(roomId) {
+        const room = rooms[roomId];
+        if (!room || !room.state) return;
+
+        clearTimeout(room.state.timer); // Cancel the backup timeout
+
+        // Fill in missing answers (for players who disconnected or timed out)
+        room.players.forEach(p => {
+            if (!room.state.answers.find(a => a.id === p.id)) {
+                room.state.answers.push({ id: p.id, isCorrect: false, time: 30000 });
+            }
+        });
+
+        const sorted = [...room.state.answers].sort((a, b) => a.time - b.time);
+        const results = [];
+        let correctFound = 0;
+        let winner = null;
+        const correctAnswer = room.state.riddle.answer;
+
+        sorted.forEach((ans) => {
+            const player = room.players.find(p => p.id === ans.id);
+            if (!player) return; // Ignore if player left
+            let steps = 0;
+
+            if (ans.isCorrect) {
+                correctFound++;
+                steps = correctFound === 1 ? 3 : (correctFound === 2 ? 2 : 1);
+                player.pos = Math.max(1, player.pos - steps);
+
+                if (player.ability === 'ability_fire_sword') {
+                    room.players.forEach((rival, idx) => {
+                        if (rival.id !== player.id && rival.pos === player.pos) {
+                            rival.pos = Math.min(100, rival.pos + 10);
+                            io.to(roomId).emit('abilityTriggered', { victimIdx: idx });
+                        }
+                    });
+                }
+
+                if (player.pos === 1 && !winner) winner = player;
+            }
+
+            results.push({ name: player.name, time: (ans.time/1000).toFixed(2), steps, isCorrect: ans.isCorrect });
+        });
+
+        // Pass the correctAnswer down to the clients so they can color the UI
+        io.to(roomId).emit('roundResults', { players: room.players, results, correctAnswer });
+        
+        if (winner) {
+            setTimeout(() => {
+                io.to(roomId).emit('gameOver', winner);
+                delete rooms[roomId];
+            }, 5500); // Wait long enough for animations to finish
+        }
+        room.state = null;
+    }
 
     socket.on('disconnect', () => {
         const roomId = socketToRoom[socket.id];
         if (roomId && rooms[roomId]) {
             rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            if (rooms[roomId].players.length === 0) delete rooms[roomId];
+            if (rooms[roomId].players.length === 0) {
+                if (rooms[roomId].state) clearTimeout(rooms[roomId].state.timer);
+                delete rooms[roomId];
+            }
             delete socketToRoom[socket.id];
         }
     });
