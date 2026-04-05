@@ -1,23 +1,20 @@
-/* --- Modern Theme Variables --- */
 :root {
     --bg-dark: #0f172a;
-    --glass-bg: rgba(30, 41, 59, 0.7);
+    --glass-bg: rgba(30, 41, 59, 0.85);
     --glass-border: rgba(255, 255, 255, 0.1);
     --accent-gold: #fbbf24;
     --accent-green: #10b981;
     --accent-red: #ef4444;
     --text-main: #f8fafc;
     --text-dim: #94a3b8;
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
 }
 
-/* --- 1. Base & Background --- */
 body { 
-    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; 
+    font-family: 'Inter', system-ui, sans-serif; 
     background: var(--bg-dark);
-    background-image: 
-        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+    background-image: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                      radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
     color: var(--text-main); 
     display: flex; 
     flex-direction: column; 
@@ -25,196 +22,112 @@ body {
     margin: 0; 
     min-height: 100vh;
     padding: 20px;
-    overflow-x: hidden;
 }
 
 .hidden { display: none !important; }
 
-/* --- 2. Glass Containers --- */
-.lobby-container, .game-container, .modal-content {
+/* Containers */
+.lobby-container, .game-container, .leaderboard-popup {
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
     box-shadow: var(--shadow-xl);
     padding: 40px;
     text-align: center;
-    transition: transform 0.3s ease;
 }
 
-.lobby-container { width: 380px; margin-top: 60px; }
+.lobby-container { width: 380px; margin-top: 60px; position: relative; }
+.game-container { display: flex; flex-direction: column; align-items: center; }
 
-/* --- 3. Typography & Inputs --- */
 h1 {
-    font-size: 2.5rem;
-    font-weight: 800;
-    letter-spacing: -0.025em;
+    font-size: 2.5rem; font-weight: 800;
     background: linear-gradient(to right, var(--accent-gold), #f59e0b);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     margin-bottom: 30px;
 }
 
-input[type="text"] {
-    width: 90%;
-    background: rgba(15, 23, 42, 0.6);
+/* Inputs & Buttons */
+input[type="text"], select {
+    width: 90%; background: rgba(15, 23, 42, 0.6);
     border: 1px solid var(--glass-border);
-    padding: 14px;
-    border-radius: 12px;
-    color: white;
-    font-size: 1rem;
-    margin-bottom: 15px;
-    transition: border-color 0.3s;
+    padding: 14px; border-radius: 12px;
+    color: white; font-size: 1rem; margin-bottom: 15px;
 }
+input[type="text"]:focus { outline: none; border-color: var(--accent-gold); }
 
-input[type="text"]:focus {
-    outline: none;
-    border-color: var(--accent-gold);
-    background: rgba(15, 23, 42, 0.8);
-}
+.divider { margin: 15px 0; color: var(--text-dim); font-size: 0.8rem; font-weight: 600; }
 
-/* --- 4. Interactive Buttons --- */
 .menu-btn {
-    width: 100%;
-    padding: 14px;
-    border-radius: 12px;
-    border: none;
-    font-weight: 700;
-    font-size: 1rem;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    background: linear-gradient(135deg, var(--accent-green), #059669);
-    color: white;
-    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);
+    width: 100%; padding: 14px; border-radius: 12px; border: none;
+    font-weight: 700; font-size: 1rem; cursor: pointer; text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent-green), #059669); color: white;
+    transition: all 0.2s;
 }
+.menu-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+.menu-btn:disabled { background: #475569; opacity: 0.5; cursor: not-allowed; }
+.join-variant { background: transparent; border: 1px solid var(--accent-green); color: var(--accent-green); }
+.join-variant:hover { background: rgba(16, 185, 129, 0.1); }
 
-.menu-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.4);
-    filter: brightness(1.1);
-}
-
-.menu-btn:active { transform: translateY(0); }
-
-.menu-btn:disabled {
-    background: #475569;
-    opacity: 0.5;
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
-/* Special Button Variants */
 .help-circle {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
-    background: rgba(251, 191, 36, 0.1);
-    border: 1px solid var(--accent-gold);
-    color: var(--accent-gold);
-    font-weight: bold;
-    cursor: pointer;
-    transition: 0.3s;
+    position: absolute; top: 20px; right: 20px; width: 36px; height: 36px;
+    border-radius: 12px; background: rgba(251, 191, 36, 0.1);
+    border: 1px solid var(--accent-gold); color: var(--accent-gold);
+    font-weight: bold; cursor: pointer; z-index: 10;
 }
-
 .help-circle:hover { background: var(--accent-gold); color: var(--bg-dark); }
 
-/* --- 5. The Game Board --- */
+/* The Game Board - FIXED POSITIONING */
 .board-grid {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 8px;
-    border-radius: 16px;
-    border: 1px solid var(--glass-border);
-    margin: 20px 0;
+    position: relative; /* CRITICAL FOR AVATARS */
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px;
+    background: rgba(255, 255, 255, 0.05); padding: 8px;
+    border-radius: 16px; border: 1px solid var(--glass-border); margin: 20px 0;
 }
 
 .cell {
-    width: 50px;
-    height: 50px;
-    background: rgba(30, 41, 59, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.03);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    color: var(--text-dim);
-    position: relative;
+    width: 50px; height: 50px; background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; color: var(--text-dim);
 }
+#cell-1 { border: 2px solid var(--accent-gold); color: var(--accent-gold); font-weight: bold; background: rgba(251, 191, 36, 0.2); }
 
-/* Cell #1 Highlight */
-#cell-1 {
-    background: rgba(251, 191, 36, 0.15);
-    border: 1px solid var(--accent-gold);
-    color: var(--accent-gold);
-    font-weight: bold;
-}
-
-/* --- 6. Player Statues (The "Pawns") --- */
+/* Avatars - FIXED POSITIONING */
 .statue {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    z-index: 50;
+    position: absolute; /* CRITICAL */
+    width: 28px; height: 28px; border-radius: 8px; z-index: 50;
     transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 0 15px rgba(0,0,0,0.3);
-    border: 2px solid rgba(255,255,255,0.8);
+    border: 2px solid rgba(255,255,255,0.8); pointer-events: none;
 }
+.red-player { background: #f43f5e; box-shadow: 0 0 15px rgba(244, 63, 94, 0.6); }
+.blue-player { background: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6); }
+.green-player { background: #10b981; box-shadow: 0 0 15px rgba(16, 185, 129, 0.6); }
+.yellow-player { background: #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.6); }
 
-.red-player { background: #f43f5e; box-shadow: 0 0 15px rgba(244, 63, 94, 0.4); }
-.blue-player { background: #3b82f6; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
-.green-player { background: #10b981; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
-.yellow-player { background: #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); }
-
-/* --- 7. Modals & Results --- */
+/* Modals - FIXED Z-INDEX */
+.modal { 
+    display: none; position: fixed; top: 0; left: 0; 
+    width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); 
+    z-index: 9999; backdrop-filter: blur(8px);
+}
 .modal-content {
-    max-width: 450px;
-    margin: 100px auto;
-    border: 1px solid rgba(255,255,255,0.2);
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: var(--bg-dark); border: 2px solid var(--accent-gold);
+    padding: 30px; border-radius: 20px; width: 90%; max-width: 500px; text-align: center;
 }
 
+#options-box { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .option-btn {
-    background: rgba(51, 65, 85, 0.8);
-    color: white;
-    border: 1px solid var(--glass-border);
-    padding: 16px;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s;
+    background: rgba(51, 65, 85, 0.8); color: white; border: 1px solid var(--glass-border);
+    padding: 16px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: 0.2s;
 }
+.option-btn:hover { background: #475569; transform: scale(1.02); }
 
-.option-btn:hover {
-    background: #475569;
-    transform: scale(1.02);
-}
+/* Lists & Rules */
+.player-list-ui { list-style: none; padding: 0; text-align: left; }
+.player-list-ui li { background: rgba(15,23,42,0.5); padding: 10px; margin-bottom: 5px; border-radius: 8px; }
+.rules-list { text-align: left; line-height: 1.6; margin: 20px 0; }
 
-.leaderboard-popup {
-    background: var(--glass-bg);
-    border: 2px solid var(--accent-gold);
-    padding: 30px;
-    border-radius: 24px;
-    box-shadow: 0 0 50px rgba(0,0,0,0.5);
-}
-
-.leaderboard-row {
-    background: rgba(15, 23, 42, 0.4);
-    margin-bottom: 8px;
-    border-radius: 10px;
-    padding: 10px 20px;
-    border: 1px solid var(--glass-border);
-}
-
-/* Animations */
-@keyframes modalPop {
-    0% { opacity: 0; transform: scale(0.9) translateY(20px); }
-    100% { opacity: 1; transform: scale(1) translateY(0); }
-}
+.leaderboard-popup { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9998; border: 2px solid var(--accent-gold); }
+.leaderboard-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid var(--glass-border); }
