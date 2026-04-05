@@ -66,23 +66,45 @@ io.on('connection', (socket) => {
 
         state.answers.push({
             socketId: socket.id,
+            selected: selected,
             isCorrect: selected === state.riddle.answer,
             time: timeTaken
         });
 
+        // Wait until all players have submitted
         if (state.answers.length === roomPlayers[roomId].length) {
             const players = roomPlayers[roomId];
-            const winners = state.answers
-                .filter(a => a.isCorrect)
-                .sort((a, b) => a.time - b.time);
+            const roundData = [];
 
-            winners.forEach((win, index) => {
-                const player = players.find(p => p.id === win.socketId);
-                const moveSteps = (index === 0) ? 2 : 1;
-                player.pos = Math.max(1, player.pos - moveSteps);
+            // Sort by fastest time
+            const sortedAnswers = [...state.answers].sort((a, b) => a.time - b.time);
+            
+            let correctCount = 0;
+            sortedAnswers.forEach((ans) => {
+                const player = players.find(p => p.id === ans.socketId);
+                let stepsGranted = 0;
+
+                if (ans.isCorrect) {
+                    correctCount++;
+                    // Rank 1: 2 steps, Rank 2: 1 step
+                    stepsGranted = (correctCount === 1) ? 2 : 1; 
+                    player.pos = Math.max(1, player.pos - stepsGranted);
+                }
+
+                roundData.push({
+                    name: player.name,
+                    isCorrect: ans.isCorrect,
+                    time: (ans.time / 1000).toFixed(2),
+                    steps: stepsGranted,
+                    selected: ans.selected
+                });
             });
 
-            io.to(roomId).emit('roundResults', { players: players });
+            io.to(roomId).emit('roundResults', { 
+                players: players, 
+                results: roundData,
+                correctAnswer: state.riddle.answer 
+            });
             delete roomStates[roomId];
         }
     });
