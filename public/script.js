@@ -75,9 +75,16 @@ function openVault() {
     const list = document.getElementById('inventory-list');
     list.innerHTML = currentUser.inventory.map(item => {
         let isEq = (currentUser.selectedAvatar === item || currentUser.selectedAbility === item);
-        let label = item.replace('avatar_', '').replace('ability_', '').toUpperCase();
+        let label = item.replace('avatar_', '').replace('ability_', '').replace('_', ' ').toUpperCase();
+        
+        // Determine preview icon based on item name
+        let icon = '👤';
+        if (item.includes('knight')) icon = '🛡️';
+        if (item.includes('fire')) icon = '🔥';
+
         return `
             <div class="shop-item">
+                <div class="preview">${icon}</div>
                 <p>${label}</p>
                 <button class="menu-btn ${isEq ? 'join-variant' : ''}" onclick="equipItem('${item}')">
                     ${isEq ? 'Equipped' : 'Equip'}
@@ -153,7 +160,6 @@ socket.on('playerCountUpdate', (data) => {
     
     document.getElementById('player-count-text').innerText = `Players: ${data.count}/${data.max}`;
     
-    // Host vs Guest Button Logic
     const startBtn = document.getElementById('start-game-btn');
     const waitMsg = document.getElementById('host-wait-msg');
     if (isHost) {
@@ -165,9 +171,10 @@ socket.on('playerCountUpdate', (data) => {
         waitMsg.classList.remove('hidden');
     }
     
-    document.getElementById('player-list').innerHTML = data.players.map(p => 
-        `<li>${p.avatar === 'avatar_knight' ? '🛡️' : '👤'} ${p.name} ${p.id === socket.id ? '(You)' : ''}</li>`
-    ).join('');
+    document.getElementById('player-list').innerHTML = data.players.map((p, i) => {
+        let colorDot = ['🔴', '🔵', '🟢', '🟣'][i] || '⚪'; // Match statue colors roughly
+        return `<li style="padding: 5px 0;">${colorDot} ${p.avatar === 'avatar_knight' ? '🛡️' : '👤'} ${p.name} ${p.id === socket.id ? '(You)' : ''}</li>`;
+    }).join('');
 });
 
 socket.on('initGame', (data) => {
@@ -221,6 +228,10 @@ socket.on('startRiddleRound', (riddle) => {
         btn.onclick = () => {
             clearInterval(localTimer);
             selectedOptionBtn = btn;
+            
+            // Feature 1: Turn yellow immediately upon click
+            btn.classList.add('selected'); 
+            
             socket.emit('submitAnswer', { roomId: currentRoomId, selected: btn.innerText, timeTaken: Date.now() - startTime });
             Array.from(box.children).forEach(b => b.disabled = true);
         };
@@ -233,17 +244,25 @@ socket.on('roundResults', (data) => {
     const box = document.getElementById('options-box');
     if(box) {
         Array.from(box.children).forEach(btn => {
+            // Remove the yellow 'selected' class so green/red pops clearly
+            btn.classList.remove('selected'); 
+            
             if (btn.innerText === data.correctAnswer) btn.classList.add('correct');
             else if (btn === selectedOptionBtn) btn.classList.add('wrong');
         });
     }
-    setTimeout(() => showMiniLeaderboard(data.results), 2000);
+    
+    // Feature 2: Show leaderboard after 1.5 seconds (to view answers), then display leaderboard for 0.5 seconds
     setTimeout(() => {
-        document.getElementById('leaderboard-overlay').classList.add('hidden');
+        showMiniLeaderboard(data.results);
+    }, 1500); 
+
+    setTimeout(() => {
+        document.getElementById('leaderboard-overlay').style.display = 'none'; // hide explicitly
         document.getElementById('riddle-modal').style.display = 'none';
         updateUI(data.players);
         syncHostControls();
-    }, 5000); 
+    }, 2000); // 1500ms + 500ms (0.5 seconds) duration
 });
 
 // --- HELPER FUNCTIONS ---
@@ -271,11 +290,30 @@ function showMiniLeaderboard(results) {
     const list = document.getElementById('leaderboard-list');
     results.sort((a,b) => a.time - b.time);
     list.innerHTML = results.map((r, i) => `
-        <div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #444;">
-            <span>#${i+1} ${r.name}</span>
+        <div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
+            <span style="font-weight:bold;">#${i+1} ${r.name}</span>
             <span>${r.isCorrect ? r.time+'s' : '❌'}</span>
-            <span style="color:var(--accent-green)">+${r.steps}</span>
+            <span style="color:var(--accent-green); font-weight:800;">+${r.steps}</span>
         </div>
     `).join('');
-    document.getElementById('leaderboard-overlay').classList.remove('hidden');
+    document.getElementById('leaderboard-overlay').style.display = 'block';
 }
+
+// Feature 3: Disconnect Toast Logic
+function showToast(msg) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = msg;
+    container.appendChild(toast);
+    
+    // Remove toast after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+socket.on('playerDisconnected', (playerName) => {
+    showToast(`🚫 ${playerName} left the match.`);
+});
