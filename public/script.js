@@ -11,6 +11,7 @@ let currentUser = {
     selectedAbility: 'ability_none'
 };
 
+
 let currentRoomId = null;
 let isHost = false;
 let localTimer = null;
