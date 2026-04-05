@@ -1,7 +1,7 @@
 const socket = io();
 let myName = "", isHost = false, currentRoomId = null, maxPlayersAllowed = 2;
 let timerInterval;
-let hasAnswered = false; // BUG FIX: State tracker for the timer
+let hasAnswered = false; 
 
 function createRoom() {
     myName = document.getElementById('player-name-input').value.trim() || "Guest";
@@ -25,6 +25,13 @@ function enterWaitingRoom(id) {
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('waiting-room').classList.remove('hidden');
     document.getElementById('wait-room-id').innerText = `ROOM ID: ${id}`;
+}
+
+// THE MISSING LINK: Sending the signal to the server
+function requestStart() {
+    if (isHost && currentRoomId) {
+        socket.emit('startGameSignal', currentRoomId);
+    }
 }
 
 socket.on('playerCountUpdate', (data) => {
@@ -72,7 +79,7 @@ socket.on('startRiddleRound', (riddle) => {
     const modal = document.getElementById('riddle-modal');
     const box = document.getElementById('options-box');
     const startTime = Date.now();
-    hasAnswered = false; // Reset for new round
+    hasAnswered = false; 
     
     document.getElementById('modal-title').innerText = "SPEED ROUND!";
     document.getElementById('riddle-text').innerText = riddle.question;
@@ -84,7 +91,7 @@ socket.on('startRiddleRound', (riddle) => {
         btn.innerText = opt;
         btn.onclick = () => {
             if (hasAnswered) return;
-            hasAnswered = true; // BUG FIX: Lock answers
+            hasAnswered = true; 
             const timeTaken = Date.now() - startTime;
             
             Array.from(box.children).forEach(b => b.disabled = true);
@@ -101,7 +108,6 @@ socket.on('startRiddleRound', (riddle) => {
         document.getElementById('timer-display').innerText = `Time Left: ${timeLeft}s`;
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            // BUG FIX: Only auto-submit if the player hasn't manually clicked
             if (!hasAnswered) {
                 hasAnswered = true;
                 socket.emit('submitAnswer', { roomId: currentRoomId, selected: null, timeTaken: 30000 });
@@ -128,7 +134,7 @@ socket.on('roundResults', (data) => {
         document.getElementById('riddle-modal').style.display = 'none';
         updateUI(data.players);
         syncRollButton();
-    }, 3500); // Extended slightly so players can read the 4-player leaderboard
+    }, 3500); 
 });
 
 function showMiniLeaderboard(results) {
@@ -149,7 +155,6 @@ function updateUI(players) {
         const target = document.getElementById('cell-' + p.pos);
         const pDiv = document.getElementById('player' + (index + 1));
         if (target && pDiv) {
-            // Offset statues slightly so they don't perfectly overlap
             pDiv.style.left = target.offsetLeft + (index * 8) + 'px';
             pDiv.style.top = target.offsetTop + (index * 8) + 'px';
         }
@@ -168,7 +173,6 @@ function generateBoard() {
     }
 }
 
-// BUG FIX: Essential Network Listeners
 socket.on('playerLeft', () => {
     alert("A player disconnected. The match has ended.");
     window.location.reload();
