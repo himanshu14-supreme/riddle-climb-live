@@ -13,7 +13,8 @@ let currentUser = {
 
 let currentRoomId = null;
 let isHost = false;
-let timerInterval;
+let localTimer = null;
+let selectedOptionBtn = null; // To track what the user picked
 
 // --- 1. AUTH & UI UPDATES ---
 function playGuest() {
@@ -65,7 +66,8 @@ function updateProfileUI() {
     document.getElementById('xp-count').innerText = currentUser.xp;
 }
 
-// --- 2. SHOP & VAULT ---
+// --- 2. UI MODALS & SHOP ---
+function openRules() { document.getElementById('rules-modal').style.display = 'block'; }
 function openShop() { document.getElementById('shop-modal').style.display = 'block'; }
 function openVault() {
     const list = document.getElementById('inventory-list');
@@ -98,17 +100,13 @@ function buyItem(item, price) {
         currentUser.coins -= price;
         currentUser.inventory.push(item);
         
-        // If logged in, save to server
         if (currentUser.isLoggedIn) {
             socket.emit('save_data', {
-                coins: currentUser.coins,
-                xp: currentUser.xp,
+                coins: currentUser.coins, xp: currentUser.xp,
                 inventory: currentUser.inventory,
-                selectedAvatar: currentUser.selectedAvatar,
-                selectedAbility: currentUser.selectedAbility
+                selectedAvatar: currentUser.selectedAvatar, selectedAbility: currentUser.selectedAbility
             });
         }
-        
         updateProfileUI();
         alert(`Purchased! Find it in your Vault.`);
     } else {
@@ -124,11 +122,10 @@ function equipItem(item) {
         socket.emit('save_data', {
             coins: currentUser.coins, xp: currentUser.xp,
             inventory: currentUser.inventory,
-            selectedAvatar: currentUser.selectedAvatar,
-            selectedAbility: currentUser.selectedAbility
+            selectedAvatar: currentUser.selectedAvatar, selectedAbility: currentUser.selectedAbility
         });
     }
-    openVault(); // Refresh UI
+    openVault(); 
 }
 
 // --- 3. ROOM LOGIC ---
@@ -136,11 +133,8 @@ function createRoom() {
     const limit = document.getElementById('player-limit').value;
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     socket.emit('joinRoom', { 
-        roomId: id, 
-        playerName: currentUser.name, 
-        avatar: currentUser.selectedAvatar,
-        ability: currentUser.selectedAbility,
-        maxPlayers: limit 
+        roomId: id, playerName: currentUser.name, 
+        avatar: currentUser.selectedAvatar, ability: currentUser.selectedAbility, maxPlayers: limit 
     });
     enterWaitingRoom(id);
 }
@@ -149,10 +143,8 @@ function joinRoom() {
     const id = document.getElementById('room-input').value.trim().toUpperCase();
     if (id) {
         socket.emit('joinRoom', { 
-            roomId: id, 
-            playerName: currentUser.name,
-            avatar: currentUser.selectedAvatar,
-            ability: currentUser.selectedAbility
+            roomId: id, playerName: currentUser.name,
+            avatar: currentUser.selectedAvatar, ability: currentUser.selectedAbility
         });
         enterWaitingRoom(id);
     }
@@ -195,19 +187,43 @@ socket.on('initGame', (data) => {
     syncRollButton();
 });
 
+// Timer and Riddle Logic Update
 socket.on('startRiddleRound', (riddle) => {
     const modal = document.getElementById('riddle-modal');
     const box = document.getElementById('options-box');
-    const startTime = Date.now();
+    const timerDisplay = document.getElementById('timer-display');
     
+    selectedOptionBtn = null; // Reset selection
     document.getElementById('riddle-text').innerText = riddle.question;
     box.innerHTML = '';
+    
+    let timeLeft = 30;
+    timerDisplay.innerText = `⏳ ${timeLeft}s`;
+
+    clearInterval(localTimer);
+    localTimer = setInterval(() => {
+        timeLeft--;
+        timerDisplay.innerText = `⏳ ${timeLeft}s`;
+        if (timeLeft <= 0) {
+            clearInterval(localTimer);
+            if (!selectedOptionBtn) {
+                // Time's up, auto submit a null answer
+                socket.emit('submitAnswer', { roomId: currentRoomId, selected: null, timeTaken: 30000 });
+                Array.from(box.children).forEach(b => b.disabled = true);
+            }
+        }
+    }, 1000);
+
+    const startTime = Date.now();
 
     ['option_a', 'option_b', 'option_c', 'option_d'].forEach(key => {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.innerText = riddle[key];
         btn.onclick = () => {
+            clearInterval(localTimer);
+            selectedOptionBtn = btn;
+            btn.classList.add('selected');
             const timeTaken = Date.now() - startTime;
             socket.emit('submitAnswer', { roomId: currentRoomId, selected: btn.innerText, timeTaken });
             Array.from(box.children).forEach(b => b.disabled = true);
@@ -226,22 +242,37 @@ socket.on('abilityTriggered', (data) => {
 });
 
 socket.on('roundResults', (data) => {
-    setTimeout(() => showMiniLeaderboard(data.results), 800);
+    clearInterval(localTimer); // Safety clear
+    
+    // Highlight the correct and wrong answers
+    const box = document.getElementById('options-box');
+    Array.from(box.children).forEach(btn => {
+        if (btn.innerText === data.correctAnswer) {
+            btn.classList.add('correct');
+        } else if (btn === selectedOptionBtn) {
+            btn.classList.add('wrong'); // Only color wrong if the user specifically picked it
+        }
+    });
+
+    // Wait 2 seconds so players can see the red/green colors
+    setTimeout(() => {
+        showMiniLeaderboard(data.results);
+    }, 2000);
+
+    // After viewing leaderboard, close everything and move players
     setTimeout(() => {
         document.getElementById('leaderboard-overlay').classList.add('hidden');
         document.getElementById('riddle-modal').style.display = 'none';
         updateUI(data.players);
         syncRollButton();
-    }, 2000);
+    }, 5000); 
 });
 
 socket.on('gameOver', (winner) => {
     if (winner.id === socket.id) {
-        currentUser.coins += 100;
-        currentUser.xp += 50;
+        currentUser.coins += 100; currentUser.xp += 50;
     } else {
-        currentUser.coins += 20;
-        currentUser.xp += 10;
+        currentUser.coins += 20; currentUser.xp += 10;
     }
     
     if (currentUser.isLoggedIn) {
