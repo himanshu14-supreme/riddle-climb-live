@@ -32,6 +32,8 @@
     </div>
 
     <div id="lobby" class="lobby-container hidden">
+        <button class="help-btn" onclick="openRules()">❓</button>
+
         <div id="user-stats-bar">
             <span id="display-name"></span> | 💰 <span id="coin-count">0</span> | ✨ XP: <span id="xp-count">0</span>
         </div>
@@ -77,9 +79,9 @@
     </div>
 
     <div id="riddle-modal" class="modal">
-        <div class="modal-content glass-effect">
-            <h3 id="modal-title" style="color: var(--accent-gold);">SPEED ROUND!</h3>
-            <p id="timer-display"></p>
+        <div class="modal-content glass-effect" style="max-width: 550px;">
+            <h3 id="modal-title" style="color: var(--accent-gold); margin-bottom: 5px;">SPEED ROUND</h3>
+            <div id="timer-display">⏳ 30s</div>
             <p id="riddle-text"></p>
             <div id="options-box"></div>
         </div>
@@ -113,6 +115,24 @@
             <h2 style="color: var(--accent-gold);">Your Vault</h2>
             <div id="inventory-list" class="shop-grid" style="max-height: 300px; overflow-y: auto;"></div>
             <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('vault-modal')">Close</button>
+        </div>
+    </div>
+
+    <div id="rules-modal" class="modal">
+        <div class="modal-content glass-effect">
+            <h2 style="color: var(--accent-gold); margin-bottom: 15px;">How to Play</h2>
+            <div style="text-align: left; font-size: 0.95rem; line-height: 1.6; color: #cbd5e1;">
+                <p><b>🏁 The Goal:</b> Be the first to reach the end of the 100-step board.</p>
+                <p><b>⏱️ Riddles:</b> You have 30 seconds to answer. Answer fast to gain more ground!</p>
+                <p><b>🏃‍♂️ Scoring:</b> 
+                    <br>• 1st Correct: +3 steps
+                    <br>• 2nd Correct: +2 steps
+                    <br>• Others Correct: +1 step
+                    <br>• Wrong / Timeout: 0 steps
+                </p>
+                <p><b>⚔️ Abilities:</b> If you use a weapon (like the Fire Sword) and answer correctly, anyone on your exact tile gets knocked back 10 steps!</p>
+            </div>
+            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('rules-modal')">Understood</button>
         </div>
     </div>
 
