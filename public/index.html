@@ -9,15 +9,26 @@
 </head>
 <body>
 
-    <div id="lobby" class="lobby-container">
-        <button class="help-circle" onclick="toggleRules(true)" title="How to Play">?</button>
+    <div id="auth-screen" class="lobby-container">
         <h1>Riddle Climb</h1>
+        <p style="color: var(--text-dim); margin-bottom: 20px;">Identify yourself, Traveler.</p>
+        <input type="text" id="username-input" placeholder="Enter Nickname" maxlength="15">
+        <button class="menu-btn" onclick="handleAuth('guest')">Enter Arena</button>
+    </div>
+
+    <div id="lobby" class="lobby-container hidden">
+        <div id="user-stats-bar">
+            <span id="display-name"></span> | 💰 <span id="coin-count">0</span> | ✨ XP: <span id="xp-count">0</span>
+        </div>
         
+        <div class="nav-buttons">
+            <button class="icon-btn" onclick="openVault()">📦 Vault</button>
+            <button class="icon-btn" onclick="openShop()">🛒 Shop</button>
+        </div>
+
         <div class="input-group">
-            <input type="text" id="player-name-input" placeholder="Enter Nickname" maxlength="15">
-            
             <div class="capacity-select">
-                <label for="player-limit">Arena Size:</label>
+                <label>Arena Size:</label>
                 <select id="player-limit">
                     <option value="2">2 Players</option>
                     <option value="3">3 Players</option>
@@ -28,14 +39,13 @@
 
         <button class="menu-btn" onclick="createRoom()">Create Arena</button>
         <div class="divider">OR</div>
-        
         <input type="text" id="room-input" placeholder="Enter Room ID" maxlength="6">
         <button class="menu-btn join-variant" onclick="joinRoom()">Join Match</button>
     </div>
 
     <div id="waiting-room" class="lobby-container hidden">
-        <h2 id="wait-room-id" style="color: var(--accent-gold); letter-spacing: 2px;"></h2>
-        <p id="player-count-text">Waiting for rivals... (0/0)</p>
+        <h2 id="wait-room-id" style="color: var(--accent-gold);"></h2>
+        <p id="player-count-text">Waiting for rivals...</p>
         <ul id="player-list" class="player-list-ui"></ul>
         <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Commence Battle</button>
     </div>
@@ -43,10 +53,10 @@
     <div id="game-screen" class="game-container hidden">
         <div id="status">The Climb Begins</div>
         <div id="board" class="board-grid">
-            <div id="player1" class="statue red-player hidden"></div>
-            <div id="player2" class="statue blue-player hidden"></div>
-            <div id="player3" class="statue green-player hidden"></div>
-            <div id="player4" class="statue yellow-player hidden"></div>
+            <div id="player1" class="statue hidden"></div>
+            <div id="player2" class="statue hidden"></div>
+            <div id="player3" class="statue hidden"></div>
+            <div id="player4" class="statue hidden"></div>
         </div>
         <button id="roll-btn" class="menu-btn roll-variant">Roll for Riddle</button>
     </div>
@@ -54,34 +64,37 @@
     <div id="riddle-modal" class="modal">
         <div class="modal-content glass-effect">
             <h3 id="modal-title" style="color: var(--accent-gold);">SPEED ROUND!</h3>
-            <p id="timer-display" style="font-weight: 800; font-size: 1.2rem;"></p>
-            <p id="riddle-text" style="font-size: 1.1rem; margin: 20px 0; line-height: 1.5;"></p>
+            <p id="timer-display"></p>
+            <p id="riddle-text"></p>
             <div id="options-box"></div>
         </div>
     </div>
 
-    <div id="rules-modal" class="modal">
-        <div class="modal-content rules-content glass-effect">
-            <h2 style="color: var(--accent-gold);">📜 Rules of the Arena</h2>
-            <ul class="rules-list">
-                <li><strong>The Goal:</strong> Be the first to reach cell #1.</li>
-                <li><strong>The Challenge:</strong> Correct answers move you forward.</li>
-                <li><strong>The Reward:</strong> 
-                    <ul>
-                        <li>🥇 1st Correct: +3 Steps</li>
-                        <li>🥈 2nd Correct: +2 Steps</li>
-                        <li>🥉 3rd Correct: +1 Step</li>
-                    </ul>
-                </li>
-                <li><strong>The Risk:</strong> Wrong answers or timeouts keep you frozen in place!</li>
-            </ul>
-            <button class="menu-btn" onclick="toggleRules(false)">Understood</button>
+    <div id="shop-modal" class="modal">
+        <div class="modal-content glass-effect">
+            <h2 style="color: var(--accent-gold);">The Armory</h2>
+            <div class="shop-grid">
+                <div class="shop-item">
+                    <div class="preview">🛡️</div>
+                    <p>Knight (Fire Sword: Cut rivals -10 steps)</p>
+                    <button class="menu-btn" onclick="buyItem('knight', 500)">Buy (500 💰)</button>
+                </div>
+            </div>
+            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('shop-modal')">Close</button>
+        </div>
+    </div>
+
+    <div id="vault-modal" class="modal">
+        <div class="modal-content glass-effect">
+            <h2 style="color: var(--accent-gold);">Your Vault</h2>
+            <div id="inventory-list" class="shop-grid"></div>
+            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('vault-modal')">Close</button>
         </div>
     </div>
 
     <div id="leaderboard-overlay" class="leaderboard-popup hidden">
         <div class="leaderboard-content">
-            <h3 style="margin-top: 0; color: var(--accent-gold);">Round Standings</h3>
+            <h3>Round Standings</h3>
             <div id="leaderboard-list"></div>
         </div>
     </div>
