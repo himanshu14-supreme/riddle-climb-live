@@ -4,80 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Riddle Climb: Arena</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <div id="lobby" class="lobby-container">
-        <button class="help-circle" onclick="toggleRules(true)">?</button>
-        
+        <button class="help-circle" onclick="toggleRules(true)" title="How to Play">?</button>
         <h1>Riddle Climb</h1>
-        <input type="text" id="player-name-input" placeholder="Your Name">
         
-        <div class="capacity-select">
-            <label for="player-limit">Players:</label>
-            <select id="player-limit">
-                <option value="2">2 Players</option>
-                <option value="3">3 Players</option>
-                <option value="4">4 Players</option>
-            </select>
+        <div class="input-group">
+            <input type="text" id="player-name-input" placeholder="Enter Nickname">
+            
+            <div class="capacity-select">
+                <label for="player-limit">Arena Size:</label>
+                <select id="player-limit">
+                    <option value="2">2 Players</option>
+                    <option value="3">3 Players</option>
+                    <option value="4">4 Players</option>
+                </select>
+            </div>
         </div>
 
-        <button class="menu-btn" onclick="createRoom()">Create Room</button>
-        <hr>
-        <input type="text" id="room-input" placeholder="Room ID">
-        <button class="menu-btn" onclick="joinRoom()">Join Room</button>
+        <button class="menu-btn" onclick="createRoom()">Create Arena</button>
+        <div style="margin: 15px 0; color: var(--text-dim); font-size: 0.8rem; font-weight: 600;">OR</div>
+        
+        <input type="text" id="room-input" placeholder="Enter Room ID">
+        <button class="menu-btn join-variant" onclick="joinRoom()">Join Match</button>
     </div>
 
     <div id="waiting-room" class="lobby-container hidden">
-        <h2 id="wait-room-id"></h2>
-        <p id="player-count-text">Players Joined: 0/0</p>
-        <ul id="player-list"></ul>
-        <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Start Game</button>
+        <h2 id="wait-room-id" style="color: var(--accent-gold); letter-spacing: 2px;"></h2>
+        <p id="player-count-text">Waiting for rivals... (0/0)</p>
+        <ul id="player-list" class="player-list-ui"></ul>
+        <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Commence Battle</button>
     </div>
 
     <div id="game-screen" class="game-container hidden">
-        <h1 id="status">Multiplayer Match</h1>
+        <div id="status">The Climb Begins</div>
         <div id="board" class="board-grid">
             <div id="player1" class="statue red-player"></div>
             <div id="player2" class="statue blue-player"></div>
             <div id="player3" class="statue green-player hidden"></div>
             <div id="player4" class="statue yellow-player hidden"></div>
         </div>
-        <button id="roll-btn" class="menu-btn">Roll for Riddle</button>
+        <button id="roll-btn" class="menu-btn roll-variant">Roll for Riddle</button>
     </div>
 
     <div id="riddle-modal" class="modal">
-        <div class="modal-content">
-            <h3 id="modal-title"></h3>
-            <p id="timer-display"></p>
-            <p id="riddle-text"></p>
-            <div id="options-box"></div>
+        <div class="modal-content glass-effect">
+            <h3 id="modal-title" style="color: var(--accent-gold);">SPEED ROUND!</h3>
+            <p id="timer-display" style="font-weight: 800; font-size: 1.2rem;"></p>
+            <p id="riddle-text" style="font-size: 1.1rem; margin: 20px 0; line-height: 1.5;"></p>
+            <div id="options-box">
+                </div>
         </div>
     </div>
 
     <div id="rules-modal" class="modal">
-        <div class="modal-content rules-content">
-            <h2>📜 How to Play</h2>
+        <div class="modal-content rules-content glass-effect">
+            <h2 style="color: var(--accent-gold);">📜 Rules of the Arena</h2>
             <ul class="rules-list">
-                <li><strong>Objective:</strong> Reach cell #1 to win the race!</li>
-                <li><strong>The Roll:</strong> The host rolls for a riddle. Everyone sees the same question.</li>
-                <li><strong>Speed Matters:</strong> The faster you answer correctly, the more steps you climb:
+                <li><strong>The Goal:</strong> Be the first to reach cell #1.</li>
+                <li><strong>The Challenge:</strong> Correct answers move you forward.</li>
+                <li><strong>The Reward:</strong> 
                     <ul>
                         <li>🥇 1st Correct: +3 Steps</li>
                         <li>🥈 2nd Correct: +2 Steps</li>
                         <li>🥉 3rd Correct: +1 Step</li>
                     </ul>
                 </li>
-                <li><strong>Wrong Answers:</strong> No movement for incorrect guesses or timeouts.</li>
+                <li><strong>The Risk:</strong> Wrong answers or timeouts keep you frozen in place!</li>
             </ul>
-            <button class="menu-btn" onclick="toggleRules(false)">Got it!</button>
+            <button class="menu-btn" onclick="toggleRules(false)">Understood</button>
         </div>
     </div>
 
     <div id="leaderboard-overlay" class="leaderboard-popup hidden">
         <div class="leaderboard-content">
-            <h3>Round Rankings</h3>
-            <div id="leaderboard-list"></div>
+            <h3 style="margin-top: 0;">Round Standings</h3>
+            <div id="leaderboard-list">
+                </div>
         </div>
     </div>
 
