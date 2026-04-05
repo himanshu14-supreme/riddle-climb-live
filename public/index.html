@@ -12,8 +12,23 @@
     <div id="auth-screen" class="lobby-container">
         <h1>Riddle Climb</h1>
         <p style="color: var(--text-dim); margin-bottom: 20px;">Identify yourself, Traveler.</p>
-        <input type="text" id="username-input" placeholder="Enter Nickname" maxlength="15">
-        <button class="menu-btn" onclick="handleAuth('guest')">Enter Arena</button>
+        
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="guest-name" placeholder="Guest Nickname" maxlength="15">
+            <button class="menu-btn" onclick="playGuest()">Play as Guest</button>
+        </div>
+
+        <div class="divider">OR ACCOUNT LOG</div>
+
+        <div style="margin-top: 15px;">
+            <input type="text" id="auth-user" placeholder="Username" maxlength="15" style="margin-bottom: 10px;">
+            <input type="password" id="auth-pass" placeholder="Password" style="margin-bottom: 10px;">
+            <div style="display: flex; gap: 10px;">
+                <button class="menu-btn join-variant" onclick="login()">Login</button>
+                <button class="menu-btn join-variant" onclick="register()">Register</button>
+            </div>
+            <p id="auth-message" style="color: var(--accent-red); font-size: 0.8rem; margin-top: 10px;"></p>
+        </div>
     </div>
 
     <div id="lobby" class="lobby-container hidden">
@@ -73,11 +88,20 @@
     <div id="shop-modal" class="modal">
         <div class="modal-content glass-effect">
             <h2 style="color: var(--accent-gold);">The Armory</h2>
-            <div class="shop-grid">
+            <h3 style="text-align: left; font-size: 1rem;">Avatars</h3>
+            <div class="shop-grid" style="margin-bottom: 20px;">
                 <div class="shop-item">
                     <div class="preview">🛡️</div>
-                    <p>Knight (Fire Sword: Cut rivals -10 steps)</p>
-                    <button class="menu-btn" onclick="buyItem('knight', 500)">Buy (500 💰)</button>
+                    <p>Knight (Avatar)</p>
+                    <button class="menu-btn" onclick="buyItem('avatar_knight', 300)">Buy (300 💰)</button>
+                </div>
+            </div>
+            <h3 style="text-align: left; font-size: 1rem;">Abilities</h3>
+            <div class="shop-grid">
+                <div class="shop-item">
+                    <div class="preview">🔥</div>
+                    <p>Fire Sword (Cut rivals -10 steps)</p>
+                    <button class="menu-btn" onclick="buyItem('ability_fire_sword', 500)">Buy (500 💰)</button>
                 </div>
             </div>
             <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('shop-modal')">Close</button>
@@ -87,7 +111,7 @@
     <div id="vault-modal" class="modal">
         <div class="modal-content glass-effect">
             <h2 style="color: var(--accent-gold);">Your Vault</h2>
-            <div id="inventory-list" class="shop-grid"></div>
+            <div id="inventory-list" class="shop-grid" style="max-height: 300px; overflow-y: auto;"></div>
             <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('vault-modal')">Close</button>
         </div>
     </div>
