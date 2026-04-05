@@ -64,7 +64,11 @@
         <h2 id="wait-room-id" style="color: var(--accent-gold);"></h2>
         <p id="player-count-text">Waiting for rivals...</p>
         <ul id="player-list" class="player-list-ui"></ul>
-        <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Commence Battle</button>
+        
+        <div id="waiting-room-controls">
+            <button id="start-game-btn" class="menu-btn" onclick="requestStart()" disabled>Commence Battle</button>
+            <div id="host-wait-msg" class="status-box-gray hidden">Waiting for host...</div>
+        </div>
     </div>
 
     <div id="game-screen" class="game-container hidden">
@@ -75,7 +79,11 @@
             <div id="player3" class="statue hidden"></div>
             <div id="player4" class="statue hidden"></div>
         </div>
-        <button id="roll-btn" class="menu-btn roll-variant">Roll for Riddle</button>
+        
+        <div id="roll-controls">
+            <button id="roll-btn" class="menu-btn roll-variant">Roll for Riddle</button>
+            <div id="roll-wait-msg" class="status-box-gray hidden">Waiting for host...</div>
+        </div>
     </div>
 
     <div id="riddle-modal" class="modal">
@@ -84,37 +92,6 @@
             <div id="timer-display">⏳ 30s</div>
             <p id="riddle-text"></p>
             <div id="options-box"></div>
-        </div>
-    </div>
-
-    <div id="shop-modal" class="modal">
-        <div class="modal-content glass-effect">
-            <h2 style="color: var(--accent-gold);">The Armory</h2>
-            <h3 style="text-align: left; font-size: 1rem;">Avatars</h3>
-            <div class="shop-grid" style="margin-bottom: 20px;">
-                <div class="shop-item">
-                    <div class="preview">🛡️</div>
-                    <p>Knight (Avatar)</p>
-                    <button class="menu-btn" onclick="buyItem('avatar_knight', 300)">Buy (300 💰)</button>
-                </div>
-            </div>
-            <h3 style="text-align: left; font-size: 1rem;">Abilities</h3>
-            <div class="shop-grid">
-                <div class="shop-item">
-                    <div class="preview">🔥</div>
-                    <p>Fire Sword (Cut rivals -10 steps)</p>
-                    <button class="menu-btn" onclick="buyItem('ability_fire_sword', 500)">Buy (500 💰)</button>
-                </div>
-            </div>
-            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('shop-modal')">Close</button>
-        </div>
-    </div>
-
-    <div id="vault-modal" class="modal">
-        <div class="modal-content glass-effect">
-            <h2 style="color: var(--accent-gold);">Your Vault</h2>
-            <div id="inventory-list" class="shop-grid" style="max-height: 300px; overflow-y: auto;"></div>
-            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('vault-modal')">Close</button>
         </div>
     </div>
 
@@ -133,6 +110,29 @@
                 <p><b>⚔️ Abilities:</b> If you use a weapon (like the Fire Sword) and answer correctly, anyone on your exact tile gets knocked back 10 steps!</p>
             </div>
             <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('rules-modal')">Understood</button>
+        </div>
+    </div>
+
+    <div id="shop-modal" class="modal">
+        <div class="modal-content glass-effect">
+            <h2 style="color: var(--accent-gold);">The Armory</h2>
+            <h3 style="text-align: left; font-size: 1rem;">Avatars</h3>
+            <div class="shop-grid" style="margin-bottom: 20px;">
+                <div class="shop-item">
+                    <div class="preview">🛡️</div>
+                    <p>Knight (Avatar)</p>
+                    <button class="menu-btn" onclick="buyItem('avatar_knight', 300)">Buy (300 💰)</button>
+                </div>
+            </div>
+            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('shop-modal')">Close</button>
+        </div>
+    </div>
+
+    <div id="vault-modal" class="modal">
+        <div class="modal-content glass-effect">
+            <h2 style="color: var(--accent-gold);">Your Vault</h2>
+            <div id="inventory-list" class="shop-grid"></div>
+            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('vault-modal')">Close</button>
         </div>
     </div>
 
