@@ -3,6 +3,12 @@ let myName = "", isHost = false, currentRoomId = null, maxPlayersAllowed = 2;
 let timerInterval;
 let hasAnswered = false; 
 
+// UI Toggle for Rules
+function toggleRules(show) {
+    const rulesModal = document.getElementById('rules-modal');
+    rulesModal.style.display = show ? 'block' : 'none';
+}
+
 function createRoom() {
     myName = document.getElementById('player-name-input').value.trim() || "Guest";
     maxPlayersAllowed = document.getElementById('player-limit').value;
@@ -27,7 +33,6 @@ function enterWaitingRoom(id) {
     document.getElementById('wait-room-id').innerText = `ROOM ID: ${id}`;
 }
 
-// THE MISSING LINK: Sending the signal to the server
 function requestStart() {
     if (isHost && currentRoomId) {
         socket.emit('startGameSignal', currentRoomId);
@@ -144,7 +149,7 @@ function showMiniLeaderboard(results) {
     list.innerHTML = results.map((r, index) => `
         <div class="leaderboard-row">
             <span>#${index + 1} ${r.name}</span>
-            <span class="step-count">+${r.steps} Steps</span>
+            <span class="step-count">${r.isCorrect ? `+${r.steps} Steps` : 'Incorrect'}</span>
         </div>
     `).join('');
     overlay.classList.remove('hidden');
@@ -155,8 +160,8 @@ function updateUI(players) {
         const target = document.getElementById('cell-' + p.pos);
         const pDiv = document.getElementById('player' + (index + 1));
         if (target && pDiv) {
-            pDiv.style.left = target.offsetLeft + (index * 8) + 'px';
-            pDiv.style.top = target.offsetTop + (index * 8) + 'px';
+            pDiv.style.left = (target.offsetLeft + (index * 8)) + 'px';
+            pDiv.style.top = (target.offsetTop + (index * 8)) + 'px';
         }
     });
 }
