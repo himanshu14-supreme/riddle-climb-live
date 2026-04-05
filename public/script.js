@@ -1,10 +1,9 @@
 const socket = io();
 
-// Local State
 let currentUser = {
     isLoggedIn: false,
     name: "Guest",
-    coins: 600, 
+    coins: 300, 
     xp: 0,
     inventory: ['avatar_default', 'ability_none'],
     selectedAvatar: 'avatar_default',
@@ -14,45 +13,14 @@ let currentUser = {
 let currentRoomId = null;
 let isHost = false;
 let localTimer = null;
-let selectedOptionBtn = null; // To track what the user picked
+let selectedOptionBtn = null;
 
-// --- 1. AUTH & UI UPDATES ---
+// --- AUTH & UI ---
 function playGuest() {
     const userInp = document.getElementById('guest-name').value.trim();
     currentUser.name = userInp || "Guest_" + Math.floor(Math.random() * 999);
     transitionToLobby();
 }
-
-function register() {
-    const user = document.getElementById('auth-user').value.trim();
-    const pass = document.getElementById('auth-pass').value.trim();
-    if (!user || !pass) return alert("Enter username and password!");
-    socket.emit('auth_register', { user, pass });
-}
-
-function login() {
-    const user = document.getElementById('auth-user').value.trim();
-    const pass = document.getElementById('auth-pass').value.trim();
-    if (!user || !pass) return alert("Enter username and password!");
-    socket.emit('auth_login', { user, pass });
-}
-
-socket.on('auth_success', (userData) => {
-    currentUser = {
-        isLoggedIn: true,
-        name: userData.username,
-        coins: userData.coins,
-        xp: userData.xp,
-        inventory: userData.inventory,
-        selectedAvatar: userData.selectedAvatar,
-        selectedAbility: userData.selectedAbility
-    };
-    transitionToLobby();
-});
-
-socket.on('auth_error', (msg) => {
-    document.getElementById('auth-message').innerText = msg;
-});
 
 function transitionToLobby() {
     document.getElementById('auth-screen').classList.add('hidden');
@@ -66,75 +34,16 @@ function updateProfileUI() {
     document.getElementById('xp-count').innerText = currentUser.xp;
 }
 
-// --- 2. UI MODALS & SHOP ---
 function openRules() { document.getElementById('rules-modal').style.display = 'block'; }
-function openShop() { document.getElementById('shop-modal').style.display = 'block'; }
-function openVault() {
-    const list = document.getElementById('inventory-list');
-    list.innerHTML = currentUser.inventory.map(item => {
-        let isEquipped = (currentUser.selectedAvatar === item) || (currentUser.selectedAbility === item);
-        let icon = item.includes('knight') ? '🛡️' : (item.includes('fire_sword') ? '🔥' : '👤');
-        let label = item.replace('avatar_', '').replace('ability_', '').toUpperCase();
-
-        return `
-            <div class="shop-item">
-                <div class="preview">${icon}</div>
-                <p>${label}</p>
-                <button class="menu-btn ${isEquipped ? 'join-variant' : ''}" 
-                    onclick="equipItem('${item}')">
-                    ${isEquipped ? 'Equipped' : 'Equip'}
-                </button>
-            </div>
-        `;
-    }).join('');
-    document.getElementById('vault-modal').style.display = 'block';
-}
-
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-function buyItem(item, price) {
-    if (currentUser.inventory.includes(item)) {
-        return alert("You already own this!");
-    }
-    if (currentUser.coins >= price) {
-        currentUser.coins -= price;
-        currentUser.inventory.push(item);
-        
-        if (currentUser.isLoggedIn) {
-            socket.emit('save_data', {
-                coins: currentUser.coins, xp: currentUser.xp,
-                inventory: currentUser.inventory,
-                selectedAvatar: currentUser.selectedAvatar, selectedAbility: currentUser.selectedAbility
-            });
-        }
-        updateProfileUI();
-        alert(`Purchased! Find it in your Vault.`);
-    } else {
-        alert("Insufficient coins.");
-    }
-}
-
-function equipItem(item) {
-    if (item.startsWith('avatar_')) currentUser.selectedAvatar = item;
-    if (item.startsWith('ability_')) currentUser.selectedAbility = item;
-    
-    if (currentUser.isLoggedIn) {
-        socket.emit('save_data', {
-            coins: currentUser.coins, xp: currentUser.xp,
-            inventory: currentUser.inventory,
-            selectedAvatar: currentUser.selectedAvatar, selectedAbility: currentUser.selectedAbility
-        });
-    }
-    openVault(); 
-}
-
-// --- 3. ROOM LOGIC ---
+// --- ROOM LOGIC ---
 function createRoom() {
     const limit = document.getElementById('player-limit').value;
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     socket.emit('joinRoom', { 
         roomId: id, playerName: currentUser.name, 
-        avatar: currentUser.selectedAvatar, ability: currentUser.selectedAbility, maxPlayers: limit 
+        avatar: currentUser.selectedAvatar, maxPlayers: limit 
     });
     enterWaitingRoom(id);
 }
@@ -142,10 +51,7 @@ function createRoom() {
 function joinRoom() {
     const id = document.getElementById('room-input').value.trim().toUpperCase();
     if (id) {
-        socket.emit('joinRoom', { 
-            roomId: id, playerName: currentUser.name,
-            avatar: currentUser.selectedAvatar, ability: currentUser.selectedAbility
-        });
+        socket.emit('joinRoom', { roomId: id, playerName: currentUser.name, avatar: currentUser.selectedAvatar });
         enterWaitingRoom(id);
     }
 }
@@ -159,17 +65,28 @@ function enterWaitingRoom(id) {
 
 function requestStart() { socket.emit('startGameSignal', currentRoomId); }
 
-// --- 4. SOCKET EVENTS ---
+// --- SOCKET EVENTS ---
 socket.on('playerCountUpdate', (data) => {
     const me = data.players.find(p => p.id === socket.id);
     isHost = me ? me.isHost : false;
-    document.getElementById('player-count-text').innerText = `Players: ${data.count}/${data.max}`;
-    document.getElementById('start-game-btn').disabled = !(isHost && data.count >= 2);
     
-    document.getElementById('player-list').innerHTML = data.players.map(p => {
-        let icon = p.avatar === 'avatar_knight' ? '🛡️' : '👤';
-        return `<li>${icon} ${p.name} ${p.id === socket.id ? '(You)' : ''}</li>`
-    }).join('');
+    document.getElementById('player-count-text').innerText = `Players: ${data.count}/${data.max}`;
+    
+    // Toggle Host vs Guest UI in Waiting Room
+    const startBtn = document.getElementById('start-game-btn');
+    const waitMsg = document.getElementById('host-wait-msg');
+    if (isHost) {
+        startBtn.classList.remove('hidden');
+        waitMsg.classList.add('hidden');
+        startBtn.disabled = (data.count < 2);
+    } else {
+        startBtn.classList.add('hidden');
+        waitMsg.classList.remove('hidden');
+    }
+    
+    document.getElementById('player-list').innerHTML = data.players.map(p => 
+        `<li>${p.avatar === 'avatar_knight' ? '🛡️' : '👤'} ${p.name} ${p.id === socket.id ? '(You)' : ''}</li>`
+    ).join('');
 });
 
 socket.on('initGame', (data) => {
@@ -181,19 +98,31 @@ socket.on('initGame', (data) => {
         const pDiv = document.getElementById(`player${i+1}`);
         pDiv.classList.remove('hidden');
         pDiv.innerHTML = p.avatar === 'avatar_knight' ? '🛡️' : '👤';
-        if (p.ability === 'ability_fire_sword') pDiv.classList.add('fire-active');
     });
     updateUI(data.players);
-    syncRollButton();
+    syncHostControls();
 });
 
-// Timer and Riddle Logic Update
+function syncHostControls() {
+    const rollBtn = document.getElementById('roll-btn');
+    const rollMsg = document.getElementById('roll-wait-msg');
+
+    if (isHost) {
+        rollBtn.classList.remove('hidden');
+        rollMsg.classList.add('hidden');
+        rollBtn.onclick = () => socket.emit('requestRiddle', currentRoomId);
+    } else {
+        rollBtn.classList.add('hidden');
+        rollMsg.classList.remove('hidden');
+    }
+}
+
 socket.on('startRiddleRound', (riddle) => {
     const modal = document.getElementById('riddle-modal');
     const box = document.getElementById('options-box');
     const timerDisplay = document.getElementById('timer-display');
     
-    selectedOptionBtn = null; // Reset selection
+    selectedOptionBtn = null;
     document.getElementById('riddle-text').innerText = riddle.question;
     box.innerHTML = '';
     
@@ -204,18 +133,10 @@ socket.on('startRiddleRound', (riddle) => {
     localTimer = setInterval(() => {
         timeLeft--;
         timerDisplay.innerText = `⏳ ${timeLeft}s`;
-        if (timeLeft <= 0) {
-            clearInterval(localTimer);
-            if (!selectedOptionBtn) {
-                // Time's up, auto submit a null answer
-                socket.emit('submitAnswer', { roomId: currentRoomId, selected: null, timeTaken: 30000 });
-                Array.from(box.children).forEach(b => b.disabled = true);
-            }
-        }
+        if (timeLeft <= 0) clearInterval(localTimer);
     }, 1000);
 
     const startTime = Date.now();
-
     ['option_a', 'option_b', 'option_c', 'option_d'].forEach(key => {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
@@ -224,8 +145,7 @@ socket.on('startRiddleRound', (riddle) => {
             clearInterval(localTimer);
             selectedOptionBtn = btn;
             btn.classList.add('selected');
-            const timeTaken = Date.now() - startTime;
-            socket.emit('submitAnswer', { roomId: currentRoomId, selected: btn.innerText, timeTaken });
+            socket.emit('submitAnswer', { roomId: currentRoomId, selected: btn.innerText, timeTaken: Date.now() - startTime });
             Array.from(box.children).forEach(b => b.disabled = true);
         };
         box.appendChild(btn);
@@ -233,67 +153,26 @@ socket.on('startRiddleRound', (riddle) => {
     modal.style.display = 'block';
 });
 
-socket.on('abilityTriggered', (data) => {
-    const victimDiv = document.getElementById(`player${data.victimIdx + 1}`);
-    if (victimDiv) {
-        victimDiv.classList.add('hit-effect');
-        setTimeout(() => victimDiv.classList.remove('hit-effect'), 600);
-    }
-});
-
 socket.on('roundResults', (data) => {
-    clearInterval(localTimer); // Safety clear
-    
-    // Highlight the correct and wrong answers
     const box = document.getElementById('options-box');
-    Array.from(box.children).forEach(btn => {
-        if (btn.innerText === data.correctAnswer) {
-            btn.classList.add('correct');
-        } else if (btn === selectedOptionBtn) {
-            btn.classList.add('wrong'); // Only color wrong if the user specifically picked it
-        }
-    });
+    if(box) {
+        Array.from(box.children).forEach(btn => {
+            if (btn.innerText === data.correctAnswer) btn.classList.add('correct');
+            else if (btn === selectedOptionBtn) btn.classList.add('wrong');
+        });
+    }
 
-    // Wait 2 seconds so players can see the red/green colors
     setTimeout(() => {
         showMiniLeaderboard(data.results);
     }, 2000);
 
-    // After viewing leaderboard, close everything and move players
     setTimeout(() => {
         document.getElementById('leaderboard-overlay').classList.add('hidden');
         document.getElementById('riddle-modal').style.display = 'none';
         updateUI(data.players);
-        syncRollButton();
+        syncHostControls();
     }, 5000); 
 });
-
-socket.on('gameOver', (winner) => {
-    if (winner.id === socket.id) {
-        currentUser.coins += 100; currentUser.xp += 50;
-    } else {
-        currentUser.coins += 20; currentUser.xp += 10;
-    }
-    
-    if (currentUser.isLoggedIn) {
-        socket.emit('save_data', {
-            coins: currentUser.coins, xp: currentUser.xp,
-            inventory: currentUser.inventory,
-            selectedAvatar: currentUser.selectedAvatar, selectedAbility: currentUser.selectedAbility
-        });
-    }
-
-    updateProfileUI();
-    alert(`🏆 ${winner.name} Reached the Summit!`);
-    window.location.reload();
-});
-
-// --- HELPER FUNCTIONS ---
-function syncRollButton() {
-    const btn = document.getElementById('roll-btn');
-    btn.disabled = !isHost;
-    btn.onclick = () => socket.emit('requestRiddle', currentRoomId);
-}
 
 function updateUI(players) {
     players.forEach((p, i) => {
