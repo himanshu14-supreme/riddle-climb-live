@@ -28,83 +28,56 @@
                 <button class="btn btn-outline" onclick="register()">Register</button>
             </div>
         </div>
-        <p id="auth-message" class="error-text"></p>
     </div>
 
     <div id="lobby" class="panel center-panel hidden">
-        <div class="user-profile">
-            <h2 id="display-name">Player</h2>
-            <div class="stats-row">
-                <span class="stat-badge">🪙 <span id="coin-count">0</span></span>
-                <span class="stat-badge">⭐ <span id="xp-count">0</span> XP</span>
-            </div>
+        <h1 class="game-title">The Arena</h1>
+        <div id="user-stats-bar" class="stats-bar">
+            <span id="display-name"></span> | 💰 <span id="coin-count">0</span> | ✨ XP: <span id="xp-count">0</span>
+        </div>
+        
+        <div class="row-buttons mt-3">
+            <button class="btn btn-outline" onclick="openModal('vault-modal')">🎒 Vault</button>
+            <button class="btn btn-outline" onclick="openModal('shop-modal')">🛒 Shop</button>
         </div>
 
-        <div class="menu-grid">
-            <button class="btn btn-primary" onclick="openShop()">🛒 Shop</button>
-            <button class="btn btn-secondary" onclick="openVault()">🎒 Vault</button>
-            <button class="btn btn-outline" onclick="openRules()">📖 Rules</button>
-        </div>
-
-        <div class="divider"><span>PLAY</span></div>
-
-        <div class="input-group">
-            <label>Create Room</label>
+        <div class="input-group mt-3">
+            <label class="text-dim">Arena Size:</label>
             <select id="player-limit" class="input-field">
-                <option value="2">2 Players</option>
+                <option value="2">2 Players (Duel)</option>
                 <option value="3">3 Players</option>
-                <option value="4">4 Players</option>
+                <option value="4">4 Players (Chaos)</option>
             </select>
-            <button class="btn btn-primary" onclick="createRoom()">Create New Game</button>
         </div>
 
-        <div class="input-group" style="margin-top: 20px;">
-            <label>Join Room</label>
-            <input type="text" id="room-input" placeholder="Enter Room Code" maxlength="6">
-            <button class="btn btn-secondary" onclick="joinRoom()">Join Game</button>
-        </div>
+        <button class="btn btn-primary mt-3" onclick="createRoom()">Create Arena</button>
+        <div class="divider"><span>OR JOIN</span></div>
+        <input type="text" id="room-input" placeholder="Enter Room ID" maxlength="6">
+        <button class="btn btn-secondary mt-3" onclick="joinRoom()">Join Match</button>
     </div>
 
     <div id="waiting-room" class="panel center-panel hidden">
-        <h2 id="wait-room-id" class="room-code">ROOM: -----</h2>
-        <p id="player-count-text" class="subtitle">Players: 1/2</p>
-        
+        <h2 id="wait-room-id" class="text-gold"></h2>
+        <p id="player-count-text" class="text-dim">Waiting for rivals...</p>
         <ul id="player-list" class="player-list"></ul>
-        
-        <button id="start-game-btn" class="btn btn-primary hidden" onclick="requestStart()" disabled>Start Game</button>
-        <p id="host-wait-msg" class="subtitle hidden">Waiting for host to start...</p>
+        <button id="start-game-btn" class="btn btn-primary mt-3" onclick="requestStart()" disabled>Commence Battle</button>
     </div>
 
-    <div id="game-screen" class="hidden">
-        <div class="game-header panel">
-            <div id="status" class="status-text">Waiting for players...</div>
-            <div class="dice-section">
-                <div id="dice-display">🎲</div>
-                <button id="roll-btn" class="btn btn-primary hidden" onclick="triggerRoll()">Roll Dice</button>
-            </div>
-        </div>
+    <div id="game-screen" class="game-container hidden">
+        <div id="status" class="status-bar">The Climb Begins...</div>
         
-        <div class="board-container">
-            <div id="board" class="board-grid"></div>
-        </div>
-    </div>
-
-    <div id="rules-modal" class="modal">
-        <div class="modal-content">
-            <h2>How to Play</h2>
-            <div class="modal-body text-left">
-                <p>🎲 Roll the dice on your turn to move forward.</p>
-                <p>⚔️ <b>DUELS:</b> Land on an occupied cell to attack! Answer the riddle faster than the defender to win.</p>
-                <p>😵 <b>STUNNED:</b> Losers are pushed back 1 space and skip their next turn.</p>
-                <p>🏁 Reach cell 1 to win!</p>
+        <div id="board" class="board-grid">
             </div>
-            <button class="btn btn-primary mt-3" onclick="closeModal('rules-modal')">Got it!</button>
+
+        <div class="roll-container mt-3">
+            <div id="dice-visual" class="dice-block" onclick="rollDiceAction()">⚅</div>
+            <button id="roll-btn" class="btn btn-primary mt-3" onclick="rollDiceAction()">Roll to Move</button>
         </div>
     </div>
 
     <div id="shop-modal" class="modal">
         <div class="modal-content modal-large">
-            <h2>🛒 Shop</h2>
+            <h2>🛒 The Armory</h2>
             <div class="modal-scrollable">
                 <h3 class="section-title">Avatars</h3>
                 <div id="shop-avatars" class="item-grid"></div>
@@ -128,19 +101,20 @@
         </div>
     </div>
 
-    <div id="riddle-modal" class="modal">
-        <div class="modal-content border-red">
-            <h2 id="modal-title" class="text-red">⚔️ DUEL ⚔️</h2>
-            <p id="riddle-text" class="riddle-text">Loading riddle...</p>
-            <div id="options-box" class="options-grid"></div>
-            <p id="timer-display" class="timer">⏳ 30s</p>
+    <div id="info-modal" class="modal">
+        <div class="modal-content border-gold text-center">
+            <h3 class="text-gold">Item Info</h3>
+            <p id="info-desc-text" class="mt-3 text-main"></p>
+            <button class="btn btn-outline mt-3" onclick="closeModal('info-modal')">Got it</button>
         </div>
     </div>
 
-    <div id="spectator-overlay" class="modal">
+    <div id="riddle-modal" class="modal">
         <div class="modal-content border-red">
-            <h2 class="text-red">⚔️ DUEL IN PROGRESS ⚔️</h2>
-            <p id="spectator-msg">Player 1 is fighting Player 2...</p>
+            <h2 id="modal-title" class="text-red">⚔️ BATTLE ⚔️</h2>
+            <p id="riddle-text" class="riddle-text">Loading riddle...</p>
+            <div id="options-box" class="options-grid"></div>
+            <p id="timer-display" class="timer">⏳ 30s</p>
         </div>
     </div>
 
