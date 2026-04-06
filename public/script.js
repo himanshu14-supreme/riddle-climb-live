@@ -1,25 +1,68 @@
 const socket = io();
 
-let currentUser = { isLoggedIn: false, name: "Guest", coins: 600, xp: 0, inventory: ['avatar_default', 'ability_none'], selectedAvatar: 'avatar_default', selectedAbility: 'ability_none' };
+// Define all items available in the game
+const SHOP_ITEMS = [
+    { id: 'avatar_default', name: 'Peasant', icon: '👤', type: 'avatar', price: 0 },
+    { id: 'avatar_knight', name: 'Knight', icon: '🛡️', type: 'avatar', price: 100 },
+    { id: 'avatar_mage', name: 'Mage', icon: '🧙‍♂️', type: 'avatar', price: 150 },
+    { id: 'avatar_king', name: 'King', icon: '👑', type: 'avatar', price: 300 },
+    { id: 'ability_none', name: 'None', icon: '🚫', type: 'ability', price: 0 },
+    { id: 'ability_haste', name: 'Haste', icon: '⚡', type: 'ability', price: 200 },
+    { id: 'ability_shield', name: 'Shield', icon: '🛡️', type: 'ability', price: 250 }
+];
+
+let currentUser = { 
+    isLoggedIn: false, 
+    name: "Guest", 
+    coins: 600, 
+    xp: 0, 
+    inventory: ['avatar_default', 'ability_none'], 
+    selectedAvatar: 'avatar_default', 
+    selectedAbility: 'ability_none' 
+};
+
 let currentRoomId = null;
 let isHost = false;
 let myId = null;
 let duelTimer = null;
 let duelActive = false;
 
-// --- AUTH & MENUS ---
+// --- AUTHENTICATION ---
 function playGuest() {
     currentUser.name = document.getElementById('guest-name').value.trim() || "Guest_" + Math.floor(Math.random()*999);
     transitionToLobby();
 }
-function login() { socket.emit('auth_login', { user: document.getElementById('auth-user').value.trim(), pass: document.getElementById('auth-pass').value.trim() }); }
-function register() { socket.emit('auth_register', { user: document.getElementById('auth-user').value.trim(), pass: document.getElementById('auth-pass').value.trim() }); }
+
+function login() { 
+    socket.emit('auth_login', { 
+        user: document.getElementById('auth-user').value.trim(), 
+        pass: document.getElementById('auth-pass').value.trim() 
+    }); 
+}
+
+function register() { 
+    socket.emit('auth_register', { 
+        user: document.getElementById('auth-user').value.trim(), 
+        pass: document.getElementById('auth-pass').value.trim() 
+    }); 
+}
 
 socket.on('auth_success', (userData) => {
-    currentUser = { ...currentUser, ...userData, isLoggedIn: true };
+    // BUG FIX: Strictly map DB username to currentUser.name
+    currentUser.isLoggedIn = true;
+    currentUser.name = userData.username; 
+    currentUser.coins = userData.coins;
+    currentUser.xp = userData.xp;
+    currentUser.inventory = userData.inventory || ['avatar_default', 'ability_none'];
+    currentUser.selectedAvatar = userData.selectedAvatar || 'avatar_default';
+    currentUser.selectedAbility = userData.selectedAbility || 'ability_none';
+    
     transitionToLobby();
 });
-socket.on('auth_error', (msg) => { document.getElementById('auth-message').innerText = msg; });
+
+socket.on('auth_error', (msg) => { 
+    document.getElementById('auth-message').innerText = msg; 
+});
 
 function transitionToLobby() {
     document.getElementById('auth-screen').classList.add('hidden');
@@ -29,11 +72,96 @@ function transitionToLobby() {
     document.getElementById('xp-count').innerText = currentUser.xp;
 }
 
-// Fixed display property to flex for centering
+// --- MODALS, SHOP & VAULT ---
 function openRules() { document.getElementById('rules-modal').style.display = 'flex'; }
-function openShop() { document.getElementById('shop-modal').style.display = 'flex'; }
-function openVault() { document.getElementById('vault-modal').style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function openShop() { 
+    renderShop();
+    document.getElementById('shop-modal').style.display = 'flex'; 
+}
+
+function openVault() { 
+    renderVault();
+    document.getElementById('vault-modal').style.display = 'flex'; 
+}
+
+function renderShop() {
+    const avatarGrid = document.getElementById('shop-avatars');
+    const abilityGrid = document.getElementById('shop-abilities');
+    avatarGrid.innerHTML = ''; abilityGrid.innerHTML = '';
+
+    SHOP_ITEMS.forEach(item => {
+        if (item.price === 0) return; // Skip default items in shop
+        
+        const isOwned = currentUser.inventory.includes(item.id);
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+            <div class="item-icon">${item.icon}</div>
+            <div class="item-name">${item.name}</div>
+            <div class="item-price">${isOwned ? 'Owned' : '🪙 ' + item.price}</div>
+            <button class="btn ${isOwned ? 'btn-outline' : 'btn-buy'}" 
+                ${isOwned ? 'disabled' : ''} 
+                onclick="buyItem('${item.id}', ${item.price})">
+                ${isOwned ? 'Owned' : 'Buy'}
+            </button>
+        `;
+        
+        if (item.type === 'avatar') avatarGrid.appendChild(card);
+        else abilityGrid.appendChild(card);
+    });
+}
+
+function renderVault() {
+    const avatarGrid = document.getElementById('vault-avatars');
+    const abilityGrid = document.getElementById('vault-abilities');
+    avatarGrid.innerHTML = ''; abilityGrid.innerHTML = '';
+
+    const ownedItems = SHOP_ITEMS.filter(item => currentUser.inventory.includes(item.id));
+
+    ownedItems.forEach(item => {
+        const isEquipped = (currentUser.selectedAvatar === item.id || currentUser.selectedAbility === item.id);
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+            <div class="item-icon">${item.icon}</div>
+            <div class="item-name">${item.name}</div>
+            <button class="btn ${isEquipped ? 'btn-secondary' : 'btn-outline'}" 
+                onclick="equipItem('${item.id}', '${item.type}')">
+                ${isEquipped ? 'Equipped' : 'Equip'}
+            </button>
+        `;
+        
+        if (item.type === 'avatar') avatarGrid.appendChild(card);
+        else abilityGrid.appendChild(card);
+    });
+}
+
+function buyItem(id, price) {
+    if (currentUser.coins < price) return alert("Not enough coins!");
+    
+    currentUser.coins -= price;
+    currentUser.inventory.push(id);
+    document.getElementById('coin-count').innerText = currentUser.coins;
+    
+    if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
+    renderShop();
+    showToast("Item purchased!");
+}
+
+function equipItem(id, type) {
+    if (type === 'avatar') currentUser.selectedAvatar = id;
+    if (type === 'ability') currentUser.selectedAbility = id;
+    
+    if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
+    renderVault();
+}
+
+function getAvatarIcon(avatarId) {
+    const item = SHOP_ITEMS.find(i => i.id === avatarId);
+    return item ? item.icon : '👤';
+}
 
 // --- ROOM LOGIC ---
 function createRoom() {
@@ -42,6 +170,7 @@ function createRoom() {
     socket.emit('joinRoom', { roomId: id, playerName: currentUser.name, avatar: currentUser.selectedAvatar, maxPlayers: limit });
     enterWaitingRoom(id);
 }
+
 function joinRoom() {
     const id = document.getElementById('room-input').value.trim().toUpperCase();
     if (id) {
@@ -49,12 +178,14 @@ function joinRoom() {
         enterWaitingRoom(id);
     }
 }
+
 function enterWaitingRoom(id) {
     currentRoomId = id;
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('waiting-room').classList.remove('hidden');
     document.getElementById('wait-room-id').innerText = `ROOM: ${id}`;
 }
+
 function requestStart() { socket.emit('startGameSignal', currentRoomId); }
 
 socket.on('playerCountUpdate', (data) => {
@@ -63,9 +194,18 @@ socket.on('playerCountUpdate', (data) => {
     
     document.getElementById('player-count-text').innerText = `Players: ${data.count}/${data.max}`;
     const startBtn = document.getElementById('start-game-btn');
-    if (isHost) { startBtn.classList.remove('hidden'); startBtn.disabled = (data.count < 2); }
+    const waitMsg = document.getElementById('host-wait-msg');
     
-    document.getElementById('player-list').innerHTML = data.players.map((p, i) => `<li>👤 ${p.name} ${p.id === myId ? '(You)' : ''}</li>`).join('');
+    if (isHost) { 
+        startBtn.classList.remove('hidden'); 
+        startBtn.disabled = (data.count < 2); 
+        waitMsg.classList.add('hidden');
+    } else {
+        startBtn.classList.add('hidden');
+        waitMsg.classList.remove('hidden');
+    }
+    
+    document.getElementById('player-list').innerHTML = data.players.map((p, i) => `<li>${getAvatarIcon(p.avatar)} ${p.name} ${p.id === myId ? '(You)' : ''}</li>`).join('');
 });
 
 // --- GAME LOGIC ---
@@ -86,7 +226,7 @@ socket.on('turnUpdate', (data) => {
 
     if (data.activePlayerId === myId) {
         statusText.innerText = "YOUR TURN!";
-        statusText.style.color = "var(--accent-green)";
+        statusText.style.color = "var(--secondary)";
         rollBtn.disabled = false;
         rollBtn.classList.remove('hidden');
     } else {
@@ -125,19 +265,16 @@ socket.on('diceRolled', (data) => {
     }, 100);
 });
 
-// --- DUEL MECHANIC ---
+// --- DUEL LOGIC ---
 socket.on('duelStarted', (data) => {
     duelActive = true;
     const isDuelist = (myId === data.attackerId || myId === data.defenderId);
     
     document.getElementById('status').innerText = `⚔️ DUEL: ${data.attackerName} vs ${data.defenderName}! ⚔️`;
-    document.getElementById('status').style.color = "var(--accent-red)";
+    document.getElementById('status').style.color = "var(--danger)";
 
-    if (isDuelist) {
-        showDuelModal(data.riddle);
-    } else {
-        showSpectatorOverlay(data.attackerName, data.defenderName);
-    }
+    if (isDuelist) showDuelModal(data.riddle);
+    else showSpectatorOverlay(data.attackerName, data.defenderName);
 });
 
 function showDuelModal(riddle) {
@@ -145,7 +282,7 @@ function showDuelModal(riddle) {
     const box = document.getElementById('options-box');
     const timerDisplay = document.getElementById('timer-display');
     
-    document.getElementById('modal-title').innerText = "⚔️ DUEL TO THE DEATH ⚔️";
+    document.getElementById('modal-title').innerText = "⚔️ DUEL ⚔️";
     document.getElementById('riddle-text').innerText = riddle.question;
     box.innerHTML = '';
     
@@ -169,7 +306,7 @@ function showDuelModal(riddle) {
         };
         box.appendChild(btn);
     });
-    modal.style.display = 'flex'; // Fixed for centering
+    modal.style.display = 'flex';
 }
 
 function showSpectatorOverlay(p1, p2) {
@@ -203,7 +340,7 @@ socket.on('stunRecovered', (playerId) => {
 });
 
 socket.on('gameOver', (winner) => {
-    alert(`🎉 ${winner.name} reached the top and won the game!`);
+    alert(`🎉 ${winner.name} reached the end and won the game!`);
     window.location.reload();
 });
 
@@ -230,11 +367,12 @@ function updateUI(players) {
             pDiv = document.createElement('div');
             pDiv.id = `player-${p.id}`;
             pDiv.className = 'statue';
-            pDiv.innerHTML = '👤';
             const colors = ['#ef4444', '#3b82f6', '#10b981', '#a855f7'];
             pDiv.style.borderColor = colors[i % colors.length];
             board.appendChild(pDiv);
         }
+        
+        pDiv.innerHTML = getAvatarIcon(p.avatar); // Dynamically set the correct icon
 
         const cell = document.getElementById('cell-' + p.pos);
         if (cell) {
