@@ -6,7 +6,6 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 require('dotenv').config();
 
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 const db = mysql.createPool({
@@ -26,18 +25,14 @@ io.on('connection', (socket) => {
     socket.on('auth_register', (data) => {
         const { user, pass } = data;
         db.query('SELECT * FROM users WHERE username = ?', [user], (err, results) => {
-            if (results.length > 0) {
-                socket.emit('auth_error', 'Username already exists.');
-            } else {
-                db.query('INSERT INTO users (username, password) VALUES (?, ?)', [user, pass], (err, result) => {
-                    if (err) return socket.emit('auth_error', 'Database error.');
-                    socket.emit('auth_success', {
-                        username: user, coins: 600, xp: 0,
-                        inventory: ['avatar_default', 'ability_none'],
-                        selectedAvatar: 'avatar_default', selectedAbility: 'ability_none'
-                    });
+            if (results.length > 0) return socket.emit('auth_error', 'Username exists.');
+            db.query('INSERT INTO users (username, password) VALUES (?, ?)', [user, pass], () => {
+                socket.emit('auth_success', {
+                    username: user, coins: 600, xp: 0,
+                    inventory: ['avatar_default', 'ability_none'],
+                    selectedAvatar: 'avatar_default', selectedAbility: 'ability_none'
                 });
-            }
+            });
         });
     });
 
@@ -60,12 +55,12 @@ io.on('connection', (socket) => {
 
     socket.on('save_data', (data) => {
         if (socket.username) {
-            db.query(`UPDATE users SET coins = ?, xp = ?, inventory = ?, selectedAvatar = ?, selectedAbility = ? WHERE username = ?`,
+            db.query(`UPDATE users SET coins=?, xp=?, inventory=?, selectedAvatar=?, selectedAbility=? WHERE username=?`,
                 [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, socket.username]);
         }
     });
 
-    // --- GAME LOGIC ---
+    // --- ROOM SETUP ---
     socket.on('joinRoom', (data) => {
         const { roomId, playerName, maxPlayers, avatar, ability } = data;
         
@@ -73,19 +68,21 @@ io.on('connection', (socket) => {
             rooms[roomId] = { 
                 players: [], 
                 maxPlayers: parseInt(maxPlayers) || 2, 
-                state: null 
+                turnIndex: 0,
+                state: 'WAITING', // WAITING, PLAYING, DUELING
+                duel: null
             };
         }
 
         const room = rooms[roomId];
-        if (room.players.length < room.maxPlayers) {
+        if (room.players.length < room.maxPlayers && room.state === 'WAITING') {
             socket.join(roomId);
             socketToRoom[socket.id] = roomId;
             
             room.players.push({ 
                 id: socket.id, name: playerName, 
                 avatar: avatar || 'avatar_default', ability: ability || 'ability_none',
-                isHost: room.players.length === 0, pos: 100 
+                isHost: room.players.length === 0, pos: 100, stunned: false
             });
 
             io.to(roomId).emit('playerCountUpdate', {
@@ -96,122 +93,151 @@ io.on('connection', (socket) => {
 
     socket.on('startGameSignal', (roomId) => {
         const room = rooms[roomId];
-        if (room) io.to(roomId).emit('initGame', { players: room.players });
-    });
-
-    socket.on('requestRiddle', (roomId) => {
-        const room = rooms[roomId];
-        db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
-            if (err || results.length === 0) return; 
-            
-            // Start server-side timeout buffer (31 seconds)
-            room.state = { 
-                answers: [], 
-                riddle: results[0],
-                timer: setTimeout(() => evaluateRound(roomId), 31000) 
-            };
-            io.to(roomId).emit('startRiddleRound', results[0]);
-        });
-    });
-
-    socket.on('submitAnswer', (data) => {
-        const room = rooms[data.roomId];
-        if (!room || !room.state) return;
-
-        if (room.state.answers.find(a => a.id === socket.id)) return;
-
-        room.state.answers.push({
-            id: socket.id,
-            isCorrect: (data.selected === room.state.riddle.answer),
-            time: data.timeTaken || 30000
-        });
-
-        // If everyone answered before the timeout, evaluate early
-        if (room.state.answers.length === room.players.length) {
-            evaluateRound(data.roomId);
+        if (room) {
+            room.state = 'PLAYING';
+            io.to(roomId).emit('initGame', { players: room.players });
+            startNextTurn(roomId);
         }
     });
 
-    // Centralized logic to evaluate rounds
-    function evaluateRound(roomId) {
+    // --- TURN & DICE LOGIC ---
+    function startNextTurn(roomId) {
         const room = rooms[roomId];
-        if (!room || !room.state) return;
+        if(!room) return;
 
-        clearTimeout(room.state.timer); // Cancel the backup timeout
+        let safetyCounter = 0;
+        // Skip stunned players
+        while (room.players[room.turnIndex].stunned && safetyCounter < room.players.length) {
+            room.players[room.turnIndex].stunned = false; // Remove stun for next time
+            io.to(roomId).emit('stunRecovered', room.players[room.turnIndex].id);
+            room.turnIndex = (room.turnIndex + 1) % room.players.length;
+            safetyCounter++;
+        }
 
-        // Fill in missing answers (for players who disconnected or timed out)
-        room.players.forEach(p => {
-            if (!room.state.answers.find(a => a.id === p.id)) {
-                room.state.answers.push({ id: p.id, isCorrect: false, time: 30000 });
-            }
-        });
+        const activePlayer = room.players[room.turnIndex];
+        io.to(roomId).emit('turnUpdate', { activePlayerId: activePlayer.id, name: activePlayer.name });
+    }
 
-        const sorted = [...room.state.answers].sort((a, b) => a.time - b.time);
-        const results = [];
-        let correctFound = 0;
-        let winner = null;
-        const correctAnswer = room.state.riddle.answer;
-
-        sorted.forEach((ans) => {
-            const player = room.players.find(p => p.id === ans.id);
-            if (!player) return; // Ignore if player left
-            let steps = 0;
-
-            if (ans.isCorrect) {
-                correctFound++;
-                steps = correctFound === 1 ? 3 : (correctFound === 2 ? 2 : 1);
-                player.pos = Math.max(1, player.pos - steps);
-
-                if (player.ability === 'ability_fire_sword') {
-                    room.players.forEach((rival, idx) => {
-                        if (rival.id !== player.id && rival.pos === player.pos) {
-                            rival.pos = Math.min(100, rival.pos + 10);
-                            io.to(roomId).emit('abilityTriggered', { victimIdx: idx });
-                        }
-                    });
-                }
-
-                if (player.pos === 1 && !winner) winner = player;
-            }
-
-            results.push({ name: player.name, time: (ans.time/1000).toFixed(2), steps, isCorrect: ans.isCorrect });
-        });
-
-        // Pass the correctAnswer down to the clients so they can color the UI
-        io.to(roomId).emit('roundResults', { players: room.players, results, correctAnswer });
+    socket.on('rollDice', (roomId) => {
+        const room = rooms[roomId];
+        if (!room || room.state !== 'PLAYING') return;
         
-        if (winner) {
-            setTimeout(() => {
-                io.to(roomId).emit('gameOver', winner);
+        const activePlayer = room.players[room.turnIndex];
+        if (activePlayer.id !== socket.id) return; // Prevent out-of-turn rolls
+
+        const diceValue = Math.floor(Math.random() * 6) + 1;
+        activePlayer.pos = Math.max(1, activePlayer.pos - diceValue);
+
+        io.to(roomId).emit('diceRolled', { id: activePlayer.id, dice: diceValue, pos: activePlayer.pos });
+
+        // Wait for animation, then check rules
+        setTimeout(() => {
+            // Check win condition
+            if (activePlayer.pos === 1) {
+                io.to(roomId).emit('gameOver', activePlayer);
                 delete rooms[roomId];
-            }, 5500); // Wait long enough for animations to finish
+                return;
+            }
+
+            // Check collision for DUEL
+            const victim = room.players.find(p => p.pos === activePlayer.pos && p.id !== activePlayer.id);
+            if (victim) {
+                initiateDuel(roomId, activePlayer, victim);
+            } else {
+                room.turnIndex = (room.turnIndex + 1) % room.players.length;
+                startNextTurn(roomId);
+            }
+        }, 1500); // 1.5s matches client dice animation
+    });
+
+    // --- DUEL LOGIC ---
+    function initiateDuel(roomId, attacker, defender) {
+        const room = rooms[roomId];
+        room.state = 'DUELING';
+        
+        db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
+            if (err || results.length === 0) return;
+            
+            room.duel = {
+                attacker: attacker,
+                defender: defender,
+                riddle: results[0],
+                answers: 0, // Track how many answered
+                timer: setTimeout(() => resolveDuel(roomId, null, "timeout"), 30000)
+            };
+
+            io.to(roomId).emit('duelStarted', {
+                attackerId: attacker.id, attackerName: attacker.name,
+                defenderId: defender.id, defenderName: defender.name,
+                riddle: results[0]
+            });
+        });
+    }
+
+    socket.on('submitDuelAnswer', (data) => {
+        const { roomId, selected } = data;
+        const room = rooms[roomId];
+        if (!room || room.state !== 'DUELING') return;
+
+        const duel = room.duel;
+        const isCorrect = (selected === duel.riddle.answer);
+        
+        if (isCorrect) {
+            // First correct answer wins instantly
+            resolveDuel(roomId, socket.id, "win");
+        } else {
+            // Mark wrong. If both wrong, it's a tie
+            duel.answers++;
+            if (duel.answers >= 2) {
+                resolveDuel(roomId, null, "tie");
+            } else {
+                // Tell the client they got it wrong so they can see red, wait for other player
+                socket.emit('duelWrongGuess'); 
+            }
         }
-        room.state = null;
+    });
+
+    function resolveDuel(roomId, winnerId, reason) {
+        const room = rooms[roomId];
+        if(!room || !room.duel) return;
+        clearTimeout(room.duel.timer);
+
+        const attacker = room.duel.attacker;
+        const defender = room.duel.defender;
+        let winner = null, loser = null, msg = "";
+
+        if (reason === "win") {
+            winner = (winnerId === attacker.id) ? attacker : defender;
+            loser = (winnerId === attacker.id) ? defender : attacker;
+            
+            loser.stunned = true;
+            loser.pos = Math.min(100, loser.pos + 1); // Bump back 1 space to resolve collision
+            msg = `${winner.name} won the duel! ${loser.name} is stunned and pushed back!`;
+        } else {
+            // Tie / Timeout: No one stunned, attacker just gets bumped back
+            attacker.pos = Math.min(100, attacker.pos + 1);
+            msg = `Duel ended in a tie! ${attacker.name} retreated.`;
+        }
+
+        io.to(roomId).emit('duelEnded', { msg, players: room.players });
+        
+        room.state = 'PLAYING';
+        room.duel = null;
+        room.turnIndex = (room.turnIndex + 1) % room.players.length;
+        
+        setTimeout(() => startNextTurn(roomId), 3000); // Wait for players to read results
     }
 
     socket.on('disconnect', () => {
         const roomId = socketToRoom[socket.id];
         if (roomId && rooms[roomId]) {
-            // Feature 3: Find the player who left and emit to the room
             const disconnectedPlayer = rooms[roomId].players.find(p => p.id === socket.id);
-            if (disconnectedPlayer) {
-                io.to(roomId).emit('playerDisconnected', disconnectedPlayer.name);
-            }
-
-            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            if (rooms[roomId].players.length === 0) {
-                if (rooms[roomId].state) clearTimeout(rooms[roomId].state.timer);
-                delete rooms[roomId];
-            } else {
-                // If players remain, optionally re-emit the player count update so waiting rooms update dynamically
-                io.to(roomId).emit('playerCountUpdate', {
-                    count: rooms[roomId].players.length, max: rooms[roomId].maxPlayers, players: rooms[roomId].players 
-                });
-            }
+            if (disconnectedPlayer) io.to(roomId).emit('playerDisconnected', disconnectedPlayer.name);
+            delete rooms[roomId]; // Simple resolution: end game if someone leaves
             delete socketToRoom[socket.id];
         }
     });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+http.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
