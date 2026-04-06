@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Riddle Climb: Arena</title>
+    <title>Riddle Climb: Dice Duel</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    
 
     <div id="auth-screen" class="lobby-container">
         <h1>Riddle Climb</h1>
@@ -34,16 +33,11 @@
 
     <div id="lobby" class="lobby-container hidden">
         <button class="help-btn" onclick="openRules()">❓</button>
-
-        <div id="user-stats-bar">
-            <span id="display-name"></span> | 💰 <span id="coin-count">0</span> | ✨ XP: <span id="xp-count">0</span>
-        </div>
-        
+        <div id="user-stats-bar"><span id="display-name"></span> | 💰 <span id="coin-count">0</span> | ✨ XP: <span id="xp-count">0</span></div>
         <div class="nav-buttons">
             <button class="icon-btn" onclick="openVault()">📦 Vault</button>
             <button class="icon-btn" onclick="openShop()">🛒 Shop</button>
         </div>
-
         <div class="input-group">
             <div class="capacity-select">
                 <label>Arena Size:</label>
@@ -54,7 +48,6 @@
                 </select>
             </div>
         </div>
-
         <button class="menu-btn" onclick="createRoom()">Create Arena</button>
         <div class="divider">OR</div>
         <input type="text" id="room-input" placeholder="Enter Room ID" maxlength="6">
@@ -65,34 +58,33 @@
         <h2 id="wait-room-id" style="color: var(--accent-gold);"></h2>
         <p id="player-count-text">Waiting for rivals...</p>
         <ul id="player-list" class="player-list-ui" style="list-style: none; padding: 0; margin: 20px 0; text-align: left;"></ul>
-        
-        <div id="waiting-room-controls">
-            <button id="start-game-btn" class="menu-btn" onclick="requestStart()">Commence Battle</button>
-            <div id="host-wait-msg" class="status-box-gray hidden">Waiting for host...</div>
-        </div>
+        <button id="start-game-btn" class="menu-btn hidden" onclick="requestStart()">Commence Battle</button>
     </div>
 
     <div id="game-screen" class="game-container hidden">
         <div id="status" style="text-align: center; font-weight: 800; margin-bottom: 10px;">The Climb Begins</div>
-        <div id="board" class="board-grid">
-            <div id="player1" class="statue hidden"></div>
-            <div id="player2" class="statue hidden"></div>
-            <div id="player3" class="statue hidden"></div>
-            <div id="player4" class="statue hidden"></div>
-        </div>
         
-        <div id="roll-controls">
-            <button id="roll-btn" class="menu-btn roll-variant">Roll for Riddle</button>
-            <div id="roll-wait-msg" class="status-box-gray hidden">Waiting for host...</div>
+        <div class="dice-section">
+            <div id="dice-display">🎲</div>
+            <button id="roll-btn" class="menu-btn hidden" onclick="triggerRoll()">Roll Dice</button>
         </div>
+
+        <div id="board" class="board-grid"></div>
     </div>
 
     <div id="riddle-modal" class="modal">
-        <div class="modal-content glass-effect" style="max-width: 550px;">
-            <h3 id="modal-title" style="color: var(--accent-gold);">SPEED ROUND</h3>
+        <div class="modal-content glass-effect" style="border-color: var(--accent-red); box-shadow: 0 0 40px rgba(239, 68, 68, 0.4);">
+            <h3 id="modal-title" style="color: var(--accent-red); font-size: 1.8rem; animation: pulse 1s infinite;">⚔️ DUEL ⚔️</h3>
             <div id="timer-display">⏳ 30s</div>
             <p id="riddle-text"></p>
             <div id="options-box"></div>
+        </div>
+    </div>
+
+    <div id="spectator-overlay" class="modal">
+        <div class="modal-content" style="background: transparent; border: none; box-shadow: none;">
+            <h1 style="color: var(--accent-red); font-size: 3rem; text-shadow: 0 0 20px black; animation: pulse 1.5s infinite;">⚔️ CLASH ⚔️</h1>
+            <h2 id="spectator-msg" style="color: white; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px;"></h2>
         </div>
     </div>
 
@@ -100,9 +92,10 @@
         <div class="modal-content glass-effect">
             <h2 style="color: var(--accent-gold);">How to Play</h2>
             <div style="text-align: left; line-height: 1.6; color: #cbd5e1;">
-                <p>🏁 Reach step 1 to win!</p>
-                <p>⏱️ You have 30 seconds to answer. Fast answers move you further.</p>
-                <p>🛡️ Equipping items in the Vault can give you special effects.</p>
+                <p>🎲 Roll the dice on your turn to move.</p>
+                <p>⚔️ <b>DUELS:</b> Land on an occupied cell to attack! Answer the riddle faster than the defender to win.</p>
+                <p>😵 <b>STUNNED:</b> Losers skip their next turn.</p>
+                <p>🏁 Reach cell 1 to win!</p>
             </div>
             <button class="menu-btn join-variant" onclick="closeModal('rules-modal')">Got it!</button>
         </div>
@@ -112,38 +105,15 @@
         <div class="modal-content glass-effect">
             <h2 style="color: var(--accent-gold);">The Armory</h2>
             <div class="shop-grid">
-                <div class="shop-item">
-                    <div class="preview">🛡️</div>
-                    <p>Knight Avatar</p>
-                    <button class="menu-btn" onclick="buyItem('avatar_knight', 300)">Buy (300 💰)</button>
-                </div>
-                <div class="shop-item">
-                    <div class="preview">🔥</div>
-                    <p>Fire Sword</p>
-                    <button class="menu-btn" onclick="buyItem('ability_fire_sword', 500)">Buy (500 💰)</button>
-                </div>
+                <div class="shop-item"><div class="preview">🛡️</div><p>Knight Avatar</p></div>
             </div>
             <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('shop-modal')">Close</button>
         </div>
     </div>
 
-    <div id="vault-modal" class="modal">
-        <div class="modal-content glass-effect">
-            <h2 style="color: var(--accent-gold);">Your Vault</h2>
-            <div id="inventory-list" class="shop-grid" style="max-height: 400px; overflow-y: auto;"></div>
-            <button class="menu-btn join-variant" style="margin-top:20px" onclick="closeModal('vault-modal')">Close</button>
-        </div>
-    </div>
-
-    <div id="leaderboard-overlay" class="leaderboard-popup hidden">
-        <div class="leaderboard-content" style="background: var(--bg-dark); padding: 30px; border-radius: 20px; border: 2px solid var(--accent-gold); width: 80%; max-width: 400px; text-align: center; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
-            <h3 style="color: var(--accent-gold); margin-top: 0;">Round Standings</h3>
-            <div id="leaderboard-list"></div>
-        </div>
-    </div>
+    <div id="vault-modal" class="modal"><div class="modal-content glass-effect"><button class="menu-btn join-variant" onclick="closeModal('vault-modal')">Close</button></div></div>
 
     <div id="toast-container"></div>
-
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 </body>
