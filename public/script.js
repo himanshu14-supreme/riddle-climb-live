@@ -7,7 +7,7 @@ let myId = null;
 let duelTimer = null;
 let duelActive = false;
 
-// --- AUTH & MENUS (Unchanged) ---
+// --- AUTH & MENUS ---
 function playGuest() {
     currentUser.name = document.getElementById('guest-name').value.trim() || "Guest_" + Math.floor(Math.random()*999);
     transitionToLobby();
@@ -28,9 +28,11 @@ function transitionToLobby() {
     document.getElementById('coin-count').innerText = currentUser.coins;
     document.getElementById('xp-count').innerText = currentUser.xp;
 }
-function openRules() { document.getElementById('rules-modal').style.display = 'block'; }
-function openShop() { document.getElementById('shop-modal').style.display = 'block'; }
-function openVault() { /* Using existing implementation */ document.getElementById('vault-modal').style.display = 'block'; }
+
+// Fixed display property to flex for centering
+function openRules() { document.getElementById('rules-modal').style.display = 'flex'; }
+function openShop() { document.getElementById('shop-modal').style.display = 'flex'; }
+function openVault() { document.getElementById('vault-modal').style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
 // --- ROOM LOGIC ---
@@ -104,7 +106,6 @@ socket.on('diceRolled', (data) => {
     const dice = document.getElementById('dice-display');
     dice.classList.add('rolling');
     
-    // Animate dice visually
     let ticks = 0;
     const interval = setInterval(() => {
         dice.innerText = Math.floor(Math.random() * 6) + 1;
@@ -114,7 +115,6 @@ socket.on('diceRolled', (data) => {
             dice.innerText = data.dice;
             dice.classList.remove('rolling');
             
-            // Move player
             const pDiv = document.getElementById(`player-${data.id}`);
             const cell = document.getElementById('cell-' + data.pos);
             if (pDiv && cell) {
@@ -130,7 +130,6 @@ socket.on('duelStarted', (data) => {
     duelActive = true;
     const isDuelist = (myId === data.attackerId || myId === data.defenderId);
     
-    // Emphasize the conflict
     document.getElementById('status').innerText = `⚔️ DUEL: ${data.attackerName} vs ${data.defenderName}! ⚔️`;
     document.getElementById('status').style.color = "var(--accent-red)";
 
@@ -170,23 +169,22 @@ function showDuelModal(riddle) {
         };
         box.appendChild(btn);
     });
-    modal.style.display = 'block';
+    modal.style.display = 'flex'; // Fixed for centering
 }
 
 function showSpectatorOverlay(p1, p2) {
     const overlay = document.getElementById('spectator-overlay');
-    document.getElementById('spectator-msg').innerText = `${p1} and ${p2} are dueling for the cell!`;
+    document.getElementById('spectator-msg').innerText = `${p1} and ${p2} are dueling!`;
     overlay.style.display = 'flex';
 }
 
 socket.on('duelWrongGuess', () => {
-    // If I guessed wrong, turn my selection red but keep modal open to watch timer
     const selected = document.querySelector('.duel-btn.selected');
     if(selected) {
         selected.classList.remove('selected');
         selected.classList.add('wrong');
     }
-    document.getElementById('modal-title').innerText = "❌ INCORRECT! Pray they fail...";
+    document.getElementById('modal-title').innerText = "❌ INCORRECT!";
 });
 
 socket.on('duelEnded', (data) => {
@@ -196,7 +194,7 @@ socket.on('duelEnded', (data) => {
     document.getElementById('spectator-overlay').style.display = 'none';
     
     showToast(data.msg);
-    updateUI(data.players); // Refreshes positions and applies stun visuals
+    updateUI(data.players); 
 });
 
 socket.on('stunRecovered', (playerId) => {
@@ -229,12 +227,10 @@ function updateUI(players) {
     players.forEach((p, i) => {
         let pDiv = document.getElementById(`player-${p.id}`);
         if (!pDiv) {
-            // Create player statue if it doesn't exist yet
             pDiv = document.createElement('div');
             pDiv.id = `player-${p.id}`;
             pDiv.className = 'statue';
             pDiv.innerHTML = '👤';
-            // Assign distinct borders based on index
             const colors = ['#ef4444', '#3b82f6', '#10b981', '#a855f7'];
             pDiv.style.borderColor = colors[i % colors.length];
             board.appendChild(pDiv);
@@ -242,7 +238,6 @@ function updateUI(players) {
 
         const cell = document.getElementById('cell-' + p.pos);
         if (cell) {
-            // Dynamic offsetting to prevent perfect overlap if people are on same cell
             const countOnCell = players.filter(pl => pl.pos === p.pos).length;
             const offset = countOnCell > 1 ? (i * 8) : 10; 
             
@@ -250,7 +245,6 @@ function updateUI(players) {
             pDiv.style.top = cell.offsetTop + offset + 'px';
         }
 
-        // Apply stun visual
         if (p.stunned) pDiv.classList.add('stunned');
         else pDiv.classList.remove('stunned');
     });
