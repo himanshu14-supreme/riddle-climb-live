@@ -1,220 +1,140 @@
 const socket = io();
 
-// Define items with new 'desc' for the Info Tooltip
+// Added desc field for abilities tooltip
 const SHOP_ITEMS = [
-    { id: 'avatar_default', name: 'Peasant', icon: '👤', type: 'avatar', price: 0, desc: 'A simple traveler looking for glory.' },
-    { id: 'avatar_knight', name: 'Knight', icon: '🛡️', type: 'avatar', price: 100, desc: 'Knocks rivals back 5 steps if you land on their square.' },
-    { id: 'avatar_mage', name: 'Mage', icon: '🧙‍♂️', type: 'avatar', price: 150, desc: 'Immune to hazard traps on the battlefield.' },
-    { id: 'avatar_king', name: 'King', icon: '👑', type: 'avatar', price: 300, desc: 'Gains 1 extra step on every successful roll.' },
-    { id: 'ability_none', name: 'None', icon: '🚫', type: 'ability', price: 0, desc: 'No active ability equipped.' },
-    { id: 'ability_haste', name: 'Haste', icon: '⚡', type: 'ability', price: 200, desc: 'Passive: 20% chance to roll again after a correct answer.' },
-    { id: 'ability_shield', name: 'Shield', icon: '🛡️', type: 'ability', price: 250, desc: 'Passive: Protects you from being stunned in a duel once per game.' }
+    { id: 'avatar_default', name: 'Peasant', icon: '👤', type: 'avatar', price: 0 },
+    { id: 'avatar_knight', name: 'Knight', icon: '🛡️', type: 'avatar', price: 100 },
+    { id: 'avatar_mage', name: 'Mage', icon: '🧙‍♂️', type: 'avatar', price: 150 },
+    { id: 'avatar_king', name: 'King', icon: '👑', type: 'avatar', price: 300 },
+    { id: 'ability_none', name: 'None', icon: '🚫', type: 'ability', price: 0, desc: 'No special abilities equipped.' },
+    { id: 'ability_haste', name: 'Haste', icon: '⚡', type: 'ability', price: 200, desc: 'Passive: Adds +1 to your dice rolls.' },
+    { id: 'ability_shield', name: 'Shield', icon: '🛡️', type: 'ability', price: 250, desc: 'Passive: Protects you from being stunned once per game.' }
 ];
 
-let currentUser = { 
-    isLoggedIn: false, 
-    name: "Guest", 
-    coins: 600, 
-    xp: 0, 
-    inventory: ['avatar_default', 'ability_none'], 
-    selectedAvatar: 'avatar_default', 
-    selectedAbility: 'ability_none' 
-};
-
+let currentUser = { isLoggedIn: false, name: "Guest", coins: 600, xp: 0, inventory: ['avatar_default', 'ability_none'], selectedAvatar: 'avatar_default', selectedAbility: 'ability_none' };
 let currentRoomId = null;
 let isHost = false;
 let myId = null;
+let duelTimer = null;
+let duelActive = false;
 
-// --- 1. AUTH & UI ---
+// --- AUTHENTICATION ---
 function playGuest() {
-    const name = document.getElementById('guest-name').value.trim() || "Guest_" + Math.floor(Math.random()*999);
-    currentUser.name = name;
-    currentUser.isLoggedIn = true;
-    showLobby();
+    currentUser.name = document.getElementById('guest-name').value.trim() || "Guest_" + Math.floor(Math.random()*999);
+    transitionToLobby();
 }
 
-function login() { playGuest(); } // Simplified for client side
-function register() { playGuest(); }
+function login() { socket.emit('auth_login', { user: document.getElementById('auth-user').value.trim(), pass: document.getElementById('auth-pass').value.trim() }); }
+function register() { socket.emit('auth_register', { user: document.getElementById('auth-user').value.trim(), pass: document.getElementById('auth-pass').value.trim() }); }
 
-function showLobby() {
+socket.on('auth_success', (userData) => {
+    currentUser.isLoggedIn = true;
+    currentUser.name = userData.username; 
+    currentUser.coins = userData.coins;
+    currentUser.xp = userData.xp;
+    currentUser.inventory = userData.inventory || ['avatar_default', 'ability_none'];
+    currentUser.selectedAvatar = userData.selectedAvatar || 'avatar_default';
+    currentUser.selectedAbility = userData.selectedAbility || 'ability_none';
+    transitionToLobby();
+});
+
+socket.on('auth_error', (msg) => { document.getElementById('auth-message').innerText = msg; });
+
+function transitionToLobby() {
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('lobby').classList.remove('hidden');
-    updateProfileUI();
-}
-
-function updateProfileUI() {
     document.getElementById('display-name').innerText = currentUser.name;
     document.getElementById('coin-count').innerText = currentUser.coins;
     document.getElementById('xp-count').innerText = currentUser.xp;
-    renderShop();
-    renderVault();
 }
 
-// --- 2. SHOP & VAULT (With Tooltips) ---
-function openModal(id) { document.getElementById(id).style.display = 'block'; }
+// --- MODALS, SHOP & VAULT (WITH TOOLTIPS) ---
+function openRules() { document.getElementById('rules-modal').style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-function showInfo(desc) {
-    document.getElementById('info-desc-text').innerText = desc;
-    openModal('info-modal');
-}
+function openShop() { renderShop(); document.getElementById('shop-modal').style.display = 'flex'; }
+function openVault() { renderVault(); document.getElementById('vault-modal').style.display = 'flex'; }
 
 function renderShop() {
-    const avatars = document.getElementById('shop-avatars');
-    const abilities = document.getElementById('shop-abilities');
-    avatars.innerHTML = ''; abilities.innerHTML = '';
+    const avatarGrid = document.getElementById('shop-avatars');
+    const abilityGrid = document.getElementById('shop-abilities');
+    avatarGrid.innerHTML = ''; abilityGrid.innerHTML = '';
 
     SHOP_ITEMS.forEach(item => {
+        if (item.price === 0) return; 
+        
         const isOwned = currentUser.inventory.includes(item.id);
-        const card = `
-            <div class="item-card">
-                <span class="info-btn" onclick="showInfo('${item.desc}')">?</span>
-                <div class="item-icon">${item.icon}</div>
-                <div class="item-name">${item.name}</div>
-                <div class="item-price">${isOwned ? 'Owned' : item.price + ' 💰'}</div>
-                <button class="btn btn-outline mt-3" style="width:100%; padding: 8px;" 
-                    onclick="buyItem('${item.id}')" ${isOwned ? 'disabled' : ''}>Buy</button>
-            </div>
+        const tooltipHTML = item.type === 'ability' ? `<div class="info-btn">?<span class="tooltip-text">${item.desc}</span></div>` : '';
+
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+            ${tooltipHTML}
+            <div class="item-icon">${item.icon}</div>
+            <div class="item-name">${item.name}</div>
+            <div class="item-price">${isOwned ? 'Owned' : '🪙 ' + item.price}</div>
+            <button class="btn ${isOwned ? 'btn-outline' : 'btn-buy'}" ${isOwned ? 'disabled' : ''} onclick="buyItem('${item.id}', ${item.price})">
+                ${isOwned ? 'Owned' : 'Buy'}
+            </button>
         `;
-        if (item.type === 'avatar') avatars.innerHTML += card;
-        else abilities.innerHTML += card;
+        
+        if (item.type === 'avatar') avatarGrid.appendChild(card);
+        else abilityGrid.appendChild(card);
     });
 }
 
 function renderVault() {
-    const avatars = document.getElementById('vault-avatars');
-    const abilities = document.getElementById('vault-abilities');
-    avatars.innerHTML = ''; abilities.innerHTML = '';
+    const avatarGrid = document.getElementById('vault-avatars');
+    const abilityGrid = document.getElementById('vault-abilities');
+    avatarGrid.innerHTML = ''; abilityGrid.innerHTML = '';
 
-    currentUser.inventory.forEach(itemId => {
-        const item = SHOP_ITEMS.find(i => i.id === itemId);
-        if (!item) return;
-        
-        const isSelected = (currentUser.selectedAvatar === itemId || currentUser.selectedAbility === itemId);
-        const card = `
-            <div class="item-card" style="border-color: ${isSelected ? 'var(--gold)' : ''}">
-                <span class="info-btn" onclick="showInfo('${item.desc}')">?</span>
-                <div class="item-icon">${item.icon}</div>
-                <div class="item-name">${item.name}</div>
-                <button class="btn ${isSelected ? 'btn-primary' : 'btn-outline'} mt-3" 
-                    style="width:100%; padding: 8px;" onclick="equipItem('${item.id}', '${item.type}')">
-                    ${isSelected ? 'Equipped' : 'Equip'}
-                </button>
-            </div>
+    const ownedItems = SHOP_ITEMS.filter(item => currentUser.inventory.includes(item.id));
+
+    ownedItems.forEach(item => {
+        const isEquipped = (currentUser.selectedAvatar === item.id || currentUser.selectedAbility === item.id);
+        const tooltipHTML = item.type === 'ability' ? `<div class="info-btn">?<span class="tooltip-text">${item.desc}</span></div>` : '';
+
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+            ${tooltipHTML}
+            <div class="item-icon">${item.icon}</div>
+            <div class="item-name">${item.name}</div>
+            <button class="btn ${isEquipped ? 'btn-secondary' : 'btn-outline'}" onclick="equipItem('${item.id}', '${item.type}')">
+                ${isEquipped ? 'Equipped' : 'Equip'}
+            </button>
         `;
-        if (item.type === 'avatar') avatars.innerHTML += card;
-        else abilities.innerHTML += card;
+        
+        if (item.type === 'avatar') avatarGrid.appendChild(card);
+        else abilityGrid.appendChild(card);
     });
 }
 
-function buyItem(id) {
-    const item = SHOP_ITEMS.find(i => i.id === id);
-    if (currentUser.coins >= item.price && !currentUser.inventory.includes(id)) {
-        currentUser.coins -= item.price;
-        currentUser.inventory.push(id);
-        updateProfileUI();
-        showToast(`Purchased ${item.name}!`, 'success');
-    } else {
-        showToast("Not enough coins!", 'error');
-    }
+function buyItem(id, price) {
+    if (currentUser.coins < price) return alert("Not enough coins!");
+    currentUser.coins -= price; currentUser.inventory.push(id);
+    document.getElementById('coin-count').innerText = currentUser.coins;
+    if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
+    renderShop(); showToast("Item purchased!");
 }
 
 function equipItem(id, type) {
     if (type === 'avatar') currentUser.selectedAvatar = id;
-    else currentUser.selectedAbility = id;
+    if (type === 'ability') currentUser.selectedAbility = id;
+    if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
     renderVault();
 }
 
-// --- 3. BATTLEFIELD BOARD GENERATION (LUDO/SNAKE STYLE) ---
-function generateBoard() {
-    const board = document.getElementById('board');
-    if (board.querySelectorAll('.cell').length > 0) return;
-
-    for (let i = 1; i <= 100; i++) {
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        cell.id = 'cell-' + i;
-        cell.innerText = i;
-        
-        // Calculate S-Shape Winding Track (Boustrophedon)
-        let row = Math.floor((i - 1) / 10); // 0 to 9
-        let col = (i - 1) % 10; // 0 to 9
-        
-        if (row % 2 === 1) col = 9 - col; // Reverse column for odd rows
-        
-        // Grid starts at 1, Row 1 is top. We want Row 0 to be at bottom.
-        cell.style.gridRow = 10 - row;
-        cell.style.gridColumn = col + 1;
-        
-        // Add Battlefield Features
-        if (i === 1) cell.classList.add('start-cell');
-        else if (i === 100) cell.classList.add('end-cell');
-        else if (i % 13 === 0) cell.classList.add('hazard-cell'); // Random hazard traps
-        else if (i % 20 === 0) cell.classList.add('safe-zone'); // Random safe zones
-        
-        board.appendChild(cell);
-    }
+function getAvatarIcon(avatarId) {
+    const item = SHOP_ITEMS.find(i => i.id === avatarId);
+    return item ? item.icon : '👤';
 }
 
-function updateUI(players) {
-    const board = document.getElementById('board');
-    players.forEach((p, i) => {
-        let pDiv = document.getElementById(`player-${p.id}`);
-        if (!pDiv) {
-            pDiv = document.createElement('div');
-            pDiv.id = `player-${p.id}`;
-            pDiv.className = 'statue';
-            const colors = ['#ef4444', '#3b82f6', '#10b981', '#fbbf24'];
-            pDiv.style.borderColor = colors[i % colors.length];
-            board.appendChild(pDiv);
-        }
-        
-        const avatarItem = SHOP_ITEMS.find(item => item.id === p.avatar);
-        pDiv.innerHTML = avatarItem ? avatarItem.icon : '👤';
-
-        const cell = document.getElementById('cell-' + p.pos);
-        if (cell) {
-            const countOnCell = players.filter(pl => pl.pos === p.pos).length;
-            const offset = countOnCell > 1 ? (i * 8) : 10; 
-            pDiv.style.left = cell.offsetLeft + offset + 'px';
-            pDiv.style.top = cell.offsetTop + offset + 'px';
-        }
-        if (p.stunned) pDiv.classList.add('stunned');
-        else pDiv.classList.remove('stunned');
-    });
-}
-
-// --- 4. DICE ANIMATION LOGIC ---
-const diceFaces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
-function rollDiceAction() {
-    const btn = document.getElementById('roll-btn');
-    const visual = document.getElementById('dice-visual');
-    if (btn.disabled) return;
-
-    btn.disabled = true;
-    visual.classList.add('dice-animating');
-    
-    let rolls = 0;
-    const interval = setInterval(() => {
-        visual.innerText = diceFaces[Math.floor(Math.random() * 6)];
-        rolls++;
-        if (rolls > 12) {
-            clearInterval(interval);
-            visual.classList.remove('dice-animating');
-            // Final face
-            visual.innerText = diceFaces[Math.floor(Math.random() * 6)];
-            
-            // Trigger server request after dice roll finishes
-            socket.emit('requestRiddle', currentRoomId);
-        }
-    }, 80); // Fast flashing
-}
-
-// --- 5. ROOM & SOCKET LOGIC ---
+// --- ROOM LOGIC ---
 function createRoom() {
     const limit = document.getElementById('player-limit').value;
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
-    socket.emit('joinRoom', { roomId: id, playerName: currentUser.name, maxPlayers: limit, avatar: currentUser.selectedAvatar });
+    socket.emit('joinRoom', { roomId: id, playerName: currentUser.name, avatar: currentUser.selectedAvatar, maxPlayers: limit });
     enterWaitingRoom(id);
 }
 
@@ -236,58 +156,241 @@ function enterWaitingRoom(id) {
 function requestStart() { socket.emit('startGameSignal', currentRoomId); }
 
 socket.on('playerCountUpdate', (data) => {
-    const me = data.players.find(p => p.id === socket.id);
-    isHost = me ? me.isHost : false;
-    myId = socket.id;
-    document.getElementById('player-count-text').innerText = `Players: ${data.count}/${data.max}`;
-    document.getElementById('start-game-btn').disabled = !(isHost && data.count >= 2);
+    const me = data.players.find(p => p.name === currentUser.name);
+    if(me) { myId = me.id; isHost = me.isHost; }
     
-    document.getElementById('player-list').innerHTML = data.players.map(p => 
-        `<li>${p.name} ${p.id === socket.id ? '(You)' : ''} ${p.isHost ? '👑' : ''}</li>`
-    ).join('');
+    document.getElementById('player-count-text').innerText = `Players: ${data.count}/${data.max}`;
+    const startBtn = document.getElementById('start-game-btn');
+    const waitMsg = document.getElementById('host-wait-msg');
+    
+    if (isHost) { startBtn.classList.remove('hidden'); startBtn.disabled = (data.count < 2); waitMsg.classList.add('hidden'); } 
+    else { startBtn.classList.add('hidden'); waitMsg.classList.remove('hidden'); }
+    
+    document.getElementById('player-list').innerHTML = data.players.map((p) => `<li>${getAvatarIcon(p.avatar)} ${p.name} ${p.id === myId ? '(You)' : ''}</li>`).join('');
 });
 
+// --- GAME LOGIC ---
 socket.on('initGame', (data) => {
     document.getElementById('waiting-room').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
-    generateBoard();
+    generateBattlefieldBoard();
+    setDiceFace(6); // Default starting face
     updateUI(data.players);
-    document.getElementById('roll-btn').disabled = !isHost; // Host rolls first
 });
 
-// Assuming your server sends 'startRiddleRound' after requestRiddle
-socket.on('startRiddleRound', (riddle) => {
-    document.getElementById('riddle-text').innerText = riddle.question;
+socket.on('turnUpdate', (data) => {
+    const statusText = document.getElementById('status');
+    const rollBtn = document.getElementById('roll-btn');
+    const diceDisplay = document.getElementById('dice-display');
+    
+    diceDisplay.classList.remove('rolling');
+
+    if (data.activePlayerId === myId) {
+        statusText.innerText = "YOUR TURN!";
+        statusText.style.color = "var(--secondary)";
+        rollBtn.disabled = false;
+        rollBtn.classList.remove('hidden');
+    } else {
+        statusText.innerText = `${data.name}'s Turn...`;
+        statusText.style.color = "var(--text-dim)";
+        rollBtn.disabled = true;
+        rollBtn.classList.add('hidden');
+    }
+});
+
+function triggerRoll() {
+    document.getElementById('roll-btn').disabled = true;
+    socket.emit('rollDice', currentRoomId);
+}
+
+socket.on('diceRolled', (data) => {
+    const dice = document.getElementById('dice-display');
+    dice.classList.add('rolling');
+    
+    let ticks = 0;
+    const interval = setInterval(() => {
+        setDiceFace(Math.floor(Math.random() * 6) + 1);
+        ticks++;
+        if(ticks > 15) {
+            clearInterval(interval);
+            setDiceFace(data.dice);
+            dice.classList.remove('rolling');
+            
+            const pDiv = document.getElementById(`player-${data.id}`);
+            const cell = document.getElementById('cell-' + data.pos);
+            if (pDiv && cell) {
+                pDiv.style.left = cell.offsetLeft + 10 + 'px';
+                pDiv.style.top = cell.offsetTop + 10 + 'px';
+            }
+        }
+    }, 80);
+});
+
+// --- LUDO DICE FACES ---
+function setDiceFace(number) {
+    const dice = document.getElementById('dice-display');
+    dice.innerHTML = ''; 
+    const layouts = {
+        1: [{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }],
+        2: [{ top: '20%', left: '20%' }, { bottom: '20%', right: '20%' }],
+        3: [{ top: '20%', left: '20%' }, { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }, { bottom: '20%', right: '20%' }],
+        4: [{ top: '20%', left: '20%' }, { top: '20%', right: '20%' }, { bottom: '20%', left: '20%' }, { bottom: '20%', right: '20%' }],
+        5: [{ top: '20%', left: '20%' }, { top: '20%', right: '20%' }, { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }, { bottom: '20%', left: '20%' }, { bottom: '20%', right: '20%' }],
+        6: [{ top: '15%', left: '20%' }, { top: '15%', right: '20%' }, { top: '50%', left: '20%', transform: 'translateY(-50%)' }, { top: '50%', right: '20%', transform: 'translateY(-50%)' }, { bottom: '15%', left: '20%' }, { bottom: '15%', right: '20%' }]
+    };
+    
+    (layouts[number] || []).forEach(pos => {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        Object.assign(dot.style, pos);
+        dice.appendChild(dot);
+    });
+}
+
+// --- DUEL LOGIC ---
+socket.on('duelStarted', (data) => {
+    duelActive = true;
+    const isDuelist = (myId === data.attackerId || myId === data.defenderId);
+    
+    document.getElementById('status').innerText = `⚔️ DUEL: ${data.attackerName} vs ${data.defenderName}! ⚔️`;
+    document.getElementById('status').style.color = "var(--danger)";
+
+    if (isDuelist) showDuelModal(data.riddle);
+    else showSpectatorOverlay(data.attackerName, data.defenderName);
+});
+
+function showDuelModal(riddle) {
+    const modal = document.getElementById('riddle-modal');
     const box = document.getElementById('options-box');
+    const timerDisplay = document.getElementById('timer-display');
+    
+    document.getElementById('modal-title').innerText = "⚔️ DUEL ⚔️";
+    document.getElementById('riddle-text').innerText = riddle.question;
     box.innerHTML = '';
     
-    ['option_a', 'option_b', 'option_c', 'option_d'].forEach(opt => {
+    let timeLeft = 30;
+    timerDisplay.innerText = `⏳ ${timeLeft}s`;
+    clearInterval(duelTimer);
+    duelTimer = setInterval(() => {
+        timeLeft--;
+        timerDisplay.innerText = `⏳ ${timeLeft}s`;
+        if (timeLeft <= 0) clearInterval(duelTimer);
+    }, 1000);
+
+    ['option_a', 'option_b', 'option_c', 'option_d'].forEach(key => {
         const btn = document.createElement('button');
-        btn.className = 'option-btn';
-        btn.innerText = riddle[opt] || opt; // Fallback if data structure varies
+        btn.className = 'option-btn duel-btn';
+        btn.innerText = riddle[key];
         btn.onclick = () => {
-            socket.emit('submitAnswer', { roomId: currentRoomId, selected: btn.innerText });
             Array.from(box.children).forEach(b => b.disabled = true);
+            btn.classList.add('selected');
+            socket.emit('submitDuelAnswer', { roomId: currentRoomId, selected: btn.innerText });
         };
         box.appendChild(btn);
     });
+    modal.style.display = 'flex';
+}
+
+function showSpectatorOverlay(p1, p2) {
+    const overlay = document.getElementById('spectator-overlay');
+    document.getElementById('spectator-msg').innerText = `${p1} and ${p2} are dueling!`;
+    overlay.style.display = 'flex';
+}
+
+socket.on('duelWrongGuess', () => {
+    const selected = document.querySelector('.duel-btn.selected');
+    if(selected) { selected.classList.remove('selected'); selected.classList.add('wrong'); }
+    document.getElementById('modal-title').innerText = "❌ INCORRECT!";
+});
+
+socket.on('duelEnded', (data) => {
+    duelActive = false;
+    clearInterval(duelTimer);
+    document.getElementById('riddle-modal').style.display = 'none';
+    document.getElementById('spectator-overlay').style.display = 'none';
     
-    openModal('riddle-modal');
+    showToast(data.msg);
+    updateUI(data.players); 
 });
 
-socket.on('roundResults', (data) => {
-    closeModal('riddle-modal');
-    updateUI(data.players);
-    document.getElementById('roll-btn').disabled = false; // Re-enable for next turn
+socket.on('stunRecovered', (playerId) => {
+    const pDiv = document.getElementById(`player-${playerId}`);
+    if(pDiv) pDiv.classList.remove('stunned');
 });
 
-// Toast Helper
-function showToast(msg, type='info') {
-    const cont = document.getElementById('toast-container');
+socket.on('gameOver', (winner) => {
+    alert(`🎉 ${winner.name} reached the end and won the game!`);
+    window.location.reload();
+});
+
+socket.on('playerDisconnected', (name) => {
+    alert(`🚫 ${name} fled the battle. Game Over.`);
+    window.location.reload();
+});
+
+// --- SERPENTINE BATTLEFIELD LOGIC ---
+function generateBattlefieldBoard() {
+    const b = document.getElementById('board');
+    if (b.querySelectorAll('.cell').length > 0) return;
+    
+    // Create a snaking path where alternating rows reverse direction
+    for (let row = 0; row < 10; row++) {
+        for (let col = 0; col < 10; col++) {
+            let cellNum;
+            // Row 0 is Top (1 to 10), Row 9 is Bottom (91 to 100)
+            if (row % 2 === 0) {
+                cellNum = (row * 10) + col + 1; // Left to Right
+            } else {
+                cellNum = (row * 10) + (10 - col); // Right to Left
+            }
+
+            const c = document.createElement('div');
+            c.className = 'cell'; 
+            c.id = 'cell-' + cellNum;
+            
+            if (cellNum === 1) { c.classList.add('win-cell'); c.innerText = 'WIN'; }
+            else if (cellNum === 100) { c.classList.add('start-cell'); c.innerText = 'START'; }
+            else { c.innerText = cellNum; }
+            
+            b.appendChild(c);
+        }
+    }
+}
+
+function updateUI(players) {
+    const board = document.getElementById('board');
+    players.forEach((p, i) => {
+        let pDiv = document.getElementById(`player-${p.id}`);
+        if (!pDiv) {
+            pDiv = document.createElement('div');
+            pDiv.id = `player-${p.id}`;
+            pDiv.className = 'statue';
+            const colors = ['#ef4444', '#3b82f6', '#10b981', '#a855f7'];
+            pDiv.style.borderColor = colors[i % colors.length];
+            board.appendChild(pDiv);
+        }
+        
+        pDiv.innerHTML = getAvatarIcon(p.avatar); 
+
+        const cell = document.getElementById('cell-' + p.pos);
+        if (cell) {
+            const countOnCell = players.filter(pl => pl.pos === p.pos).length;
+            const offset = countOnCell > 1 ? (i * 8) : 10; 
+            
+            // Adjust offset for circular cells
+            pDiv.style.left = cell.offsetLeft + (cell.offsetWidth / 2) - 17 + (countOnCell > 1 ? (i*4) : 0) + 'px';
+            pDiv.style.top = cell.offsetTop + (cell.offsetHeight / 2) - 17 + 'px';
+        }
+
+        if (p.stunned) pDiv.classList.add('stunned');
+        else pDiv.classList.remove('stunned');
+    });
+}
+
+function showToast(msg) {
+    const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.style.borderLeftColor = type === 'error' ? 'var(--danger)' : 'var(--primary)';
-    toast.innerText = msg;
-    cont.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    toast.className = 'toast'; toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
 }
