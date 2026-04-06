@@ -25,8 +25,11 @@ io.on('connection', (socket) => {
     socket.on('auth_register', (data) => {
         const { user, pass } = data;
         db.query('SELECT * FROM users WHERE username = ?', [user], (err, results) => {
-            if (results.length > 0) return socket.emit('auth_error', 'Username exists.');
-            db.query('INSERT INTO users (username, password) VALUES (?, ?)', [user, pass], () => {
+            if (err) return socket.emit('auth_error', 'Database Error. Setup your tables!');
+            if (results && results.length > 0) return socket.emit('auth_error', 'Username exists.');
+            
+            db.query('INSERT INTO users (username, password) VALUES (?, ?)', [user, pass], (err2) => {
+                if (err2) return socket.emit('auth_error', 'Failed to register.');
                 socket.emit('auth_success', {
                     username: user, coins: 600, xp: 0,
                     inventory: ['avatar_default', 'ability_none'],
@@ -39,7 +42,8 @@ io.on('connection', (socket) => {
     socket.on('auth_login', (data) => {
         const { user, pass } = data;
         db.query('SELECT * FROM users WHERE username = ? AND password = ?', [user, pass], (err, results) => {
-            if (results.length > 0) {
+            if (err) return socket.emit('auth_error', 'Database Error.');
+            if (results && results.length > 0) {
                 const u = results[0];
                 socket.emit('auth_success', {
                     username: u.username, coins: u.coins, xp: u.xp,
@@ -69,7 +73,7 @@ io.on('connection', (socket) => {
                 players: [], 
                 maxPlayers: parseInt(maxPlayers) || 2, 
                 turnIndex: 0,
-                state: 'WAITING', // WAITING, PLAYING, DUELING
+                state: 'WAITING', 
                 duel: null
             };
         }
@@ -106,9 +110,8 @@ io.on('connection', (socket) => {
         if(!room) return;
 
         let safetyCounter = 0;
-        // Skip stunned players
         while (room.players[room.turnIndex].stunned && safetyCounter < room.players.length) {
-            room.players[room.turnIndex].stunned = false; // Remove stun for next time
+            room.players[room.turnIndex].stunned = false; 
             io.to(roomId).emit('stunRecovered', room.players[room.turnIndex].id);
             room.turnIndex = (room.turnIndex + 1) % room.players.length;
             safetyCounter++;
@@ -123,23 +126,20 @@ io.on('connection', (socket) => {
         if (!room || room.state !== 'PLAYING') return;
         
         const activePlayer = room.players[room.turnIndex];
-        if (activePlayer.id !== socket.id) return; // Prevent out-of-turn rolls
+        if (activePlayer.id !== socket.id) return; 
 
         const diceValue = Math.floor(Math.random() * 6) + 1;
         activePlayer.pos = Math.max(1, activePlayer.pos - diceValue);
 
         io.to(roomId).emit('diceRolled', { id: activePlayer.id, dice: diceValue, pos: activePlayer.pos });
 
-        // Wait for animation, then check rules
         setTimeout(() => {
-            // Check win condition
             if (activePlayer.pos === 1) {
                 io.to(roomId).emit('gameOver', activePlayer);
                 delete rooms[roomId];
                 return;
             }
 
-            // Check collision for DUEL
             const victim = room.players.find(p => p.pos === activePlayer.pos && p.id !== activePlayer.id);
             if (victim) {
                 initiateDuel(roomId, activePlayer, victim);
@@ -147,7 +147,7 @@ io.on('connection', (socket) => {
                 room.turnIndex = (room.turnIndex + 1) % room.players.length;
                 startNextTurn(roomId);
             }
-        }, 1500); // 1.5s matches client dice animation
+        }, 1500); 
     });
 
     // --- DUEL LOGIC ---
@@ -156,20 +156,31 @@ io.on('connection', (socket) => {
         room.state = 'DUELING';
         
         db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
-            if (err || results.length === 0) return;
+            let activeRiddle;
+
+            // BUG FIX: Provide a fallback riddle if the DB fails so the game doesn't hang!
+            if (err || !results || results.length === 0) {
+                activeRiddle = {
+                    question: "I speak without a mouth and hear without ears. What am I?",
+                    option_a: "A shadow", option_b: "An echo", option_c: "A ghost", option_d: "The wind",
+                    answer: "An echo"
+                };
+            } else {
+                activeRiddle = results[0];
+            }
             
             room.duel = {
                 attacker: attacker,
                 defender: defender,
-                riddle: results[0],
-                answers: 0, // Track how many answered
+                riddle: activeRiddle,
+                answers: 0, 
                 timer: setTimeout(() => resolveDuel(roomId, null, "timeout"), 30000)
             };
 
             io.to(roomId).emit('duelStarted', {
                 attackerId: attacker.id, attackerName: attacker.name,
                 defenderId: defender.id, defenderName: defender.name,
-                riddle: results[0]
+                riddle: activeRiddle
             });
         });
     }
@@ -183,15 +194,12 @@ io.on('connection', (socket) => {
         const isCorrect = (selected === duel.riddle.answer);
         
         if (isCorrect) {
-            // First correct answer wins instantly
             resolveDuel(roomId, socket.id, "win");
         } else {
-            // Mark wrong. If both wrong, it's a tie
             duel.answers++;
             if (duel.answers >= 2) {
                 resolveDuel(roomId, null, "tie");
             } else {
-                // Tell the client they got it wrong so they can see red, wait for other player
                 socket.emit('duelWrongGuess'); 
             }
         }
@@ -211,10 +219,9 @@ io.on('connection', (socket) => {
             loser = (winnerId === attacker.id) ? defender : attacker;
             
             loser.stunned = true;
-            loser.pos = Math.min(100, loser.pos + 1); // Bump back 1 space to resolve collision
-            msg = `${winner.name} won the duel! ${loser.name} is stunned and pushed back!`;
+            loser.pos = Math.min(100, loser.pos + 1); 
+            msg = `${winner.name} won the duel! ${loser.name} is stunned!`;
         } else {
-            // Tie / Timeout: No one stunned, attacker just gets bumped back
             attacker.pos = Math.min(100, attacker.pos + 1);
             msg = `Duel ended in a tie! ${attacker.name} retreated.`;
         }
@@ -225,7 +232,7 @@ io.on('connection', (socket) => {
         room.duel = null;
         room.turnIndex = (room.turnIndex + 1) % room.players.length;
         
-        setTimeout(() => startNextTurn(roomId), 3000); // Wait for players to read results
+        setTimeout(() => startNextTurn(roomId), 3000); 
     }
 
     socket.on('disconnect', () => {
@@ -233,7 +240,7 @@ io.on('connection', (socket) => {
         if (roomId && rooms[roomId]) {
             const disconnectedPlayer = rooms[roomId].players.find(p => p.id === socket.id);
             if (disconnectedPlayer) io.to(roomId).emit('playerDisconnected', disconnectedPlayer.name);
-            delete rooms[roomId]; // Simple resolution: end game if someone leaves
+            delete rooms[roomId]; 
             delete socketToRoom[socket.id];
         }
     });
