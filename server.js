@@ -25,11 +25,12 @@ io.on('connection', (socket) => {
     socket.on('auth_register', (data) => {
         const { user, pass } = data;
         db.query('SELECT * FROM users WHERE username = ?', [user], (err, results) => {
-            if (err) return socket.emit('auth_error', 'Database Error. Setup your tables!');
+            if (err) return socket.emit('auth_error', 'Database Error.');
             if (results && results.length > 0) return socket.emit('auth_error', 'Username exists.');
             
             db.query('INSERT INTO users (username, password) VALUES (?, ?)', [user, pass], (err2) => {
                 if (err2) return socket.emit('auth_error', 'Failed to register.');
+                socket.username = user;
                 socket.emit('auth_success', {
                     username: user, coins: 600, xp: 0,
                     inventory: ['avatar_default', 'ability_none'],
@@ -45,12 +46,15 @@ io.on('connection', (socket) => {
             if (err) return socket.emit('auth_error', 'Database Error.');
             if (results && results.length > 0) {
                 const u = results[0];
-                socket.emit('auth_success', {
-                    username: u.username, coins: u.coins, xp: u.xp,
-                    inventory: typeof u.inventory === 'string' ? JSON.parse(u.inventory) : u.inventory,
-                    selectedAvatar: u.selectedAvatar, selectedAbility: u.selectedAbility
-                });
                 socket.username = u.username;
+                socket.emit('auth_success', {
+                    username: u.username, 
+                    coins: u.coins, 
+                    xp: u.xp,
+                    inventory: typeof u.inventory === 'string' ? JSON.parse(u.inventory) : u.inventory,
+                    selectedAvatar: u.selectedAvatar, 
+                    selectedAbility: u.selectedAbility
+                });
             } else {
                 socket.emit('auth_error', 'Invalid credentials.');
             }
@@ -158,7 +162,6 @@ io.on('connection', (socket) => {
         db.query('SELECT * FROM riddles ORDER BY RAND() LIMIT 1', (err, results) => {
             let activeRiddle;
 
-            // BUG FIX: Provide a fallback riddle if the DB fails so the game doesn't hang!
             if (err || !results || results.length === 0) {
                 activeRiddle = {
                     question: "I speak without a mouth and hear without ears. What am I?",
