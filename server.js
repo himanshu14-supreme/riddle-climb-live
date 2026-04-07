@@ -9,29 +9,38 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// serve frontend
 app.use(express.static('public'));
 
 io.on('connection', (socket) => {
+
+    console.log("User connected:", socket.id);
 
     socket.on('createRoom', () => {
         const room = createRoom(socket);
 
         socket.join(room.id);
-        socket.emit('roomJoined', { roomId: room.id, isHost: true });
+
+        socket.emit('roomJoined', {
+            roomId: room.id,
+            isHost: true
+        });
 
         io.to(room.id).emit('updateLobby', room.players);
     });
 
-    socket.on('joinRoom', (id) => {
-        const room = rooms[id];
+    socket.on('joinRoom', (roomId) => {
+        const room = rooms[roomId];
         if (!room) return;
 
         joinRoom(room, socket);
-        socket.join(id);
+        socket.join(roomId);
 
-        socket.emit('roomJoined', { roomId: id, isHost: false });
-        io.to(id).emit('updateLobby', room.players);
+        socket.emit('roomJoined', {
+            roomId,
+            isHost: false
+        });
+
+        io.to(roomId).emit('updateLobby', room.players);
     });
 
     socket.on('rollDice', (roomId) => {
@@ -56,7 +65,11 @@ io.on('connection', (socket) => {
         });
     });
 
+    socket.on('disconnect', () => {
+        console.log("User disconnected:", socket.id);
+    });
+
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server running on", PORT));
+server.listen(PORT, () => console.log("Server running on port", PORT));
