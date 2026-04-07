@@ -1,108 +1,28 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const mysql = require('mysql2');
 const path = require('path');
-const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
-});
 require('dotenv').config();
 
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
 
-// Database Connection - SIMPLIFIED
-const db = mysql.createConnection({
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ==================== DATABASE CONNECTION ====================
+
+const db = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'ludo_game'
+    database: process.env.DB_NAME || 'ludo_game',
+    port: process.env.DB_PORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
-
-db.connect((err) => {
-    if (err) {
-        console.error('❌ Database connection failed:', err.message);
-        console.log('⚠️  Creating database and tables...');
-        createDatabase();
-    } else {
-        console.log('✅ Database connected');
-        createTables();
-    }
-});
-
-function createDatabase() {
-    const tempDb = mysql.createConnection({
-        host: process.env.DB_HOST || 'localhost',
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || ''
-    });
-    
-    tempDb.connect((err) => {
-        if (err) {
-            console.error('❌ Cannot connect to MySQL:', err.message);
-            return;
-        }
-        
-        tempDb.query('CREATE DATABASE IF NOT EXISTS ludo_game', (err) => {
-            if (err) {
-                console.error('❌ Cannot create database:', err.message);
-                return;
-            }
-            console.log('✅ Database created');
-            tempDb.end();
-            
-            // Reconnect with database
-            db.connect((err) => {
-                if (err) {
-                    console.error('❌ Still cannot connect:', err.message);
-                    return;
-                }
-                createTables();
-            });
-        });
-    });
-}
-
-function createTables() {
-    const createUsersTable = `
-        CREATE TABLE IF NOT EXISTS users (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(255) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            coins INT DEFAULT 600,
-            xp INT DEFAULT 0,
-            inventory TEXT DEFAULT '["avatar_default", "ability_none"]',
-            selectedAvatar VARCHAR(50) DEFAULT 'avatar_default',
-            selectedAbility VARCHAR(50) DEFAULT 'ability_none',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    `;
-    
-    db.query(createUsersTable, (err) => {
-        if (err) {
-            console.error('❌ Cannot create users table:', err.message);
-            return;
-        }
-        console.log('✅ Users table created');
-        
-        // Insert test user
-        db.query('SELECT * FROM users WHERE username = ?', ['testuser'], (err, results) => {
-            if (err) return;
-            if (!results || results.length === 0) {
-                db.query(
-                    'INSERT INTO users (username, password, coins, xp) VALUES (?, ?, ?, ?)',
-                    ['testuser', 'test123', 1000, 100],
-                    (err) => {
-                        if (!err) console.log('✅ Test user created: testuser / test123');
-                    }
-                );
-            }
-        });
-    });
-}
 
 const rooms = {};
 const socketToRoom = {};
@@ -120,308 +40,268 @@ function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-io.on('connection', (socket) => {
-    console.log('✅ User connected:', socket.id);
-    
-    // ==================== AUTHENTICATION ====================
-    socket.on('auth_register', (data) => {
-        const { user, pass } = data;
+function getRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ==================== DATABASE FUNCTIONS ====================
+
+function registerUser(username, password, callback) {
+    db.query('SELECT id FROM users WHERE username = ?', [username], (err, results) => {
+        if (err) return callback(err, null);
+        if (results && results.length > 0) return callback(new Error('Username exists'), null);
         
-        if (!user || !pass) {
-            socket.emit('auth_error', 'Username and password required');
-            return;
+        const inventory = JSON.stringify(['avatar_peasant', 'ability_none']);
+        db.query(
+            'INSERT INTO users (username, password, coins, xp, inventory, selectedAvatar, selectedAbility) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [username, password, 600, 0, inventory, 'avatar_peasant', 'ability_none'],
+            (err) => {
+                if (err) return callback(err, null);
+                callback(null, {
+                    username,
+                    coins: 600,
+                    xp: 0,
+                    inventory: ['avatar_peasant', 'ability_none'],
+                    selectedAvatar: 'avatar_peasant',
+                    selectedAbility: 'ability_none'
+                });
+            }
+        );
+    });
+}
+
+function loginUser(username, password, callback) {
+    db.query(
+        'SELECT * FROM users WHERE username = ? AND password = ?',
+        [username, password],
+        (err, results) => {
+            if (err) return callback(err, null);
+            if (!results || results.length === 0) return callback(new Error('Invalid credentials'), null);
+            
+            const user = results[0];
+            callback(null, {
+                username: user.username,
+                coins: user.coins,
+                xp: user.xp,
+                inventory: typeof user.inventory === 'string' ? JSON.parse(user.inventory) : user.inventory,
+                selectedAvatar: user.selectedAvatar || 'avatar_peasant',
+                selectedAbility: user.selectedAbility || 'ability_none'
+            });
         }
+    );
+}
+
+function saveUserData(username, data) {
+    db.query(
+        'UPDATE users SET coins=?, xp=?, inventory=?, selectedAvatar=?, selectedAbility=? WHERE username=?',
+        [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, username],
+        (err) => {
+            if (err) console.error('Save error:', err);
+        }
+    );
+}
+
+// ==================== SOCKET CONNECTIONS ====================
+
+io.on('connection', (socket) => {
+    console.log(`🔗 User connected: ${socket.id}`);
+
+    // ===== AUTHENTICATION =====
+
+    socket.on('auth_register', (data) => {
+        const { username, password } = data;
         
-        db.query('SELECT * FROM users WHERE username = ?', [user], (err, results) => {
-            if (err) {
-                console.error('Register error:', err.message);
-                socket.emit('auth_error', 'Database error');
-                return;
-            }
-            
-            if (results && results.length > 0) {
-                socket.emit('auth_error', 'Username already exists');
-                return;
-            }
-            
-            db.query(
-                'INSERT INTO users (username, password, coins, xp) VALUES (?, ?, ?, ?)',
-                [user, pass, 600, 0],
-                (err) => {
-                    if (err) {
-                        console.error('Insert error:', err.message);
-                        socket.emit('auth_error', 'Registration failed');
-                        return;
-                    }
-                    
-                    socket.username = user;
-                    console.log('✅ User registered:', user);
-                    
-                    socket.emit('auth_success', {
-                        username: user,
-                        coins: 600,
-                        xp: 0,
-                        inventory: ['avatar_default', 'ability_none'],
-                        selectedAvatar: 'avatar_default',
-                        selectedAbility: 'ability_none'
-                    });
-                }
-            );
+        if (!username || !password || username.length < 3) {
+            return socket.emit('auth_error', 'Invalid input');
+        }
+
+        registerUser(username, password, (err, userData) => {
+            if (err) return socket.emit('auth_error', err.message);
+            socket.username = username;
+            socket.emit('auth_success', userData);
         });
     });
 
     socket.on('auth_login', (data) => {
-        const { user, pass } = data;
+        const { username, password } = data;
         
-        if (!user || !pass) {
-            socket.emit('auth_error', 'Username and password required');
-            return;
+        if (!username || !password) {
+            return socket.emit('auth_error', 'Fill in all fields');
         }
-        
-        db.query('SELECT * FROM users WHERE username = ? AND password = ?', [user, pass], (err, results) => {
-            if (err) {
-                console.error('Login error:', err.message);
-                socket.emit('auth_error', 'Database error');
-                return;
-            }
-            
-            if (!results || results.length === 0) {
-                socket.emit('auth_error', 'Invalid username or password');
-                return;
-            }
-            
-            const u = results[0];
-            socket.username = u.username;
-            
-            let inventory = ['avatar_default', 'ability_none'];
-            try {
-                if (u.inventory && u.inventory !== '') {
-                    inventory = JSON.parse(u.inventory);
-                }
-            } catch (e) {
-                console.log('Inventory parse error, using default');
-            }
-            
-            console.log('✅ User logged in:', user);
-            
-            socket.emit('auth_success', {
-                username: u.username,
-                coins: u.coins || 600,
-                xp: u.xp || 0,
-                inventory: inventory,
-                selectedAvatar: u.selectedAvatar || 'avatar_default',
-                selectedAbility: u.selectedAbility || 'ability_none'
-            });
+
+        loginUser(username, password, (err, userData) => {
+            if (err) return socket.emit('auth_error', err.message);
+            socket.username = username;
+            socket.emit('auth_success', userData);
         });
     });
 
     socket.on('save_data', (data) => {
-        if (!socket.username) return;
-        
-        db.query(
-            'UPDATE users SET coins=?, xp=?, inventory=?, selectedAvatar=?, selectedAbility=? WHERE username=?',
-            [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, socket.username],
-            (err) => {
-                if (err) console.error('Save error:', err.message);
-            }
-        );
+        if (socket.username) {
+            saveUserData(socket.username, data);
+        }
     });
 
-    // ==================== ROOM MANAGEMENT ====================
+    // ===== ROOM MANAGEMENT =====
+
     socket.on('createRoom', (data) => {
         const roomId = generateRoomCode();
-        
-        rooms[roomId] = {
-            id: roomId,
-            name: data.name || 'Game Room',
-            host: socket.id,
-            players: [{
-                id: socket.id,
-                name: socket.username || `Guest_${Math.floor(Math.random() * 9999)}`,
-                position: -1,
-                stunned: false,
-                selectedAvatar: 'avatar_default',
-                selectedAbility: 'ability_none'
-            }],
-            state: 'LOBBY',
-            currentTurnIndex: 0,
-            duel: null
-        };
-        
-        socket.join(roomId);
-        socketToRoom[socket.id] = roomId;
-        
-        console.log('✅ Room created:', roomId);
-        
-        socket.emit('roomCreated', { roomId });
-        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
-    });
-
-    socket.on('joinRoom', (roomCode) => {
-        const roomId = roomCode.toUpperCase();
-        
-        if (!rooms[roomId]) {
-            console.log('❌ Room not found:', roomId);
-            socket.emit('auth_error', 'Room not found');
-            return;
-        }
-        
-        if (rooms[roomId].state !== 'LOBBY') {
-            socket.emit('auth_error', 'Game already started');
-            return;
-        }
-        
-        if (rooms[roomId].players.length >= 4) {
-            socket.emit('auth_error', 'Room is full');
-            return;
-        }
-        
-        rooms[roomId].players.push({
+        const player = {
             id: socket.id,
-            name: socket.username || `Guest_${Math.floor(Math.random() * 9999)}`,
+            name: data.playerData.name || data.playerData.username,
+            username: data.playerData.username,
             position: -1,
             stunned: false,
-            selectedAvatar: 'avatar_default',
-            selectedAbility: 'ability_none'
-        });
-        
+            selectedAvatar: data.playerData.selectedAvatar,
+            selectedAbility: data.playerData.selectedAbility
+        };
+
+        rooms[roomId] = {
+            id: roomId,
+            players: [player],
+            state: 'LOBBY',
+            activePlayerIndex: 0,
+            duel: null
+        };
+
         socket.join(roomId);
         socketToRoom[socket.id] = roomId;
-        
-        console.log('✅ Player joined room:', roomId);
-        
-        socket.emit('roomJoined', { roomId, isHost: false });
-        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+
+        socket.emit('roomJoined', {
+            roomId,
+            isHost: true,
+            gameState: rooms[roomId]
+        });
+
+        io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+        console.log(`🏠 Room ${roomId} created by ${player.name}`);
     });
 
-    socket.on('leaveRoom', (roomId) => {
-        if (rooms[roomId]) {
-            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            if (rooms[roomId].players.length === 0) {
-                delete rooms[roomId];
-            } else {
-                io.to(roomId).emit('updatePlayers', rooms[roomId].players);
-            }
+    socket.on('joinRoom', (data) => {
+        const roomId = data.roomCode;
+
+        if (!rooms[roomId]) {
+            return socket.emit('auth_error', 'Room not found');
         }
-        socket.leave(roomId);
-        delete socketToRoom[socket.id];
+
+        if (rooms[roomId].state !== 'LOBBY') {
+            return socket.emit('auth_error', 'Game already started');
+        }
+
+        if (rooms[roomId].players.length >= 4) {
+            return socket.emit('auth_error', 'Room is full');
+        }
+
+        const player = {
+            id: socket.id,
+            name: data.playerData.name || data.playerData.username,
+            username: data.playerData.username,
+            position: -1,
+            stunned: false,
+            selectedAvatar: data.playerData.selectedAvatar,
+            selectedAbility: data.playerData.selectedAbility
+        };
+
+        rooms[roomId].players.push(player);
+        socket.join(roomId);
+        socketToRoom[socket.id] = roomId;
+
+        socket.emit('roomJoined', {
+            roomId,
+            isHost: false,
+            gameState: rooms[roomId]
+        });
+
+        io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+        console.log(`👤 ${player.name} joined room ${roomId}`);
     });
 
-    // ==================== GAME LOGIC ====================
     socket.on('startGame', (roomId) => {
-        if (!rooms[roomId] || rooms[roomId].host !== socket.id) {
-            socket.emit('auth_error', 'Only host can start');
-            return;
+        if (!rooms[roomId] || rooms[roomId].players[0].id !== socket.id) {
+            return socket.emit('auth_error', 'Only host can start game');
         }
-        
+
         rooms[roomId].state = 'PLAYING';
-        rooms[roomId].currentTurnIndex = 0;
-        
-        console.log('✅ Game started in room:', roomId);
-        
+        rooms[roomId].activePlayerIndex = 0;
         io.to(roomId).emit('gameStarted');
-        
-        setTimeout(() => {
-            const activePlayer = rooms[roomId].players[rooms[roomId].currentTurnIndex];
-            io.to(roomId).emit('turnUpdate', {
-                activePlayerId: activePlayer.id,
-                activePlayerName: activePlayer.name
-            });
-        }, 500);
+        io.to(roomId).emit('turnUpdate', {
+            activePlayerIndex: 0
+        });
+        console.log(`🎮 Game started in room ${roomId}`);
     });
+
+    // ===== GAME LOGIC =====
 
     socket.on('rollDice', (roomId) => {
-        if (!rooms[roomId] || rooms[roomId].state !== 'PLAYING') return;
-        
         const room = rooms[roomId];
-        const currentPlayer = room.players[room.currentTurnIndex];
-        
-        if (currentPlayer.id !== socket.id) {
-            console.log('❌ Not your turn');
-            return;
-        }
-        
+        if (!room || room.state !== 'PLAYING') return;
+
+        const activePlayer = room.players[room.activePlayerIndex];
+        if (activePlayer.id !== socket.id) return;
+
         const roll = Math.floor(Math.random() * 6) + 1;
-        
-        if (currentPlayer.stunned) {
-            currentPlayer.stunned = false;
-            currentPlayer.position = -1;
+
+        if (activePlayer.stunned) {
+            activePlayer.stunned = false;
             io.to(roomId).emit('diceRolled', { roll, players: room.players });
+
             setTimeout(() => {
-                room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
-                const nextPlayer = room.players[room.currentTurnIndex];
-                io.to(roomId).emit('turnUpdate', {
-                    activePlayerId: nextPlayer.id,
-                    activePlayerName: nextPlayer.name
-                });
+                room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
+                io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
             }, 2000);
             return;
         }
-        
-        if (currentPlayer.position === -1) {
-            currentPlayer.position = 0;
-        } else {
-            currentPlayer.position += roll;
-            if (currentPlayer.position >= 56) {
-                currentPlayer.position = 56;
-                io.to(roomId).emit('gameEnded', { msg: `${currentPlayer.name} won!` });
-                delete rooms[roomId];
-                return;
-            }
-        }
-        
-        io.to(roomId).emit('diceRolled', { roll, players: room.players });
-        
-        const otherPlayer = room.players.find(p => p.id !== socket.id && p.position === currentPlayer.position && p.position !== -1);
-        
-        if (otherPlayer) {
-            setTimeout(() => {
-                startDuel(roomId, currentPlayer, otherPlayer);
-            }, 1500);
-        } else {
-            setTimeout(() => {
-                room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
-                const nextPlayer = room.players[room.currentTurnIndex];
-                io.to(roomId).emit('turnUpdate', {
-                    activePlayerId: nextPlayer.id,
-                    activePlayerName: nextPlayer.name
-                });
-            }, 1500);
-        }
-    });
 
-    function startDuel(roomId, attacker, defender) {
-        if (!rooms[roomId]) return;
-        const riddle = RIDDLES[Math.floor(Math.random() * RIDDLES.length)];
-        const room = rooms[roomId];
-        room.state = 'DUEL';
-        room.duel = {
-            attacker: attacker,
-            defender: defender,
-            riddle: riddle,
-            answers: {}
-        };
-        
-        io.to(roomId).emit('startDuel', {
-            riddle: {
-                q: riddle.q,
-                options: riddle.options
-            }
-        });
-        
+        if (activePlayer.position === -1) {
+            activePlayer.position = roll - 1;
+        } else {
+            activePlayer.position += roll;
+            if (activePlayer.position > 56) activePlayer.position = 56;
+        }
+
+        io.to(roomId).emit('diceRolled', { roll, players: room.players });
+
         setTimeout(() => {
-            if (rooms[roomId]) {
-                resolveDuel(roomId, 'timeout');
+            const collision = room.players.find(p =>
+                p.id !== activePlayer.id &&
+                p.position === activePlayer.position &&
+                p.position !== -1 &&
+                p.position !== 56
+            );
+
+            if (collision) {
+                room.state = 'DUEL';
+                const riddle = getRandom(RIDDLES);
+                room.duel = {
+                    attacker: activePlayer,
+                    defender: collision,
+                    riddle,
+                    answers: {}
+                };
+
+                io.to(roomId).emit('startDuel', {
+                    riddle: { q: riddle.q, options: riddle.options },
+                    p1: activePlayer.id,
+                    p2: collision.id
+                });
+
+                setTimeout(() => resolveDuel(roomId, 'timeout'), 16000);
+            } else if (activePlayer.position === 56) {
+                io.to(roomId).emit('gameEnded', { winner: activePlayer.name });
+                room.state = 'LOBBY';
+            } else {
+                room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
+                io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
             }
-        }, 16000);
-    }
+        }, 1500);
+    });
 
     socket.on('submitDuelAnswer', (data) => {
         const room = rooms[data.roomId];
         if (!room || room.state !== 'DUEL') return;
-        
+
         room.duel.answers[socket.id] = data.answer;
-        
+
         if (Object.keys(room.duel.answers).length === 2) {
             resolveDuel(data.roomId, 'answered');
         }
@@ -430,85 +310,81 @@ io.on('connection', (socket) => {
     function resolveDuel(roomId, reason) {
         const room = rooms[roomId];
         if (!room || !room.duel) return;
-        
+
         const { attacker, defender, riddle, answers } = room.duel;
         const attAns = answers[attacker.id];
         const defAns = answers[defender.id];
-        
-        let winner = attacker;
-        let loser = defender;
-        let msg = '';
-        
-        if (attAns === riddle.answer && defAns !== riddle.answer) {
-            winner = attacker;
-            loser = defender;
-            msg = `⚔️ ${attacker.name} won the duel!`;
-        } else if (defAns === riddle.answer && attAns !== riddle.answer) {
+
+        let winner = attacker, loser = defender;
+
+        if (defAns === riddle.answer && attAns !== riddle.answer) {
             winner = defender;
             loser = attacker;
-            msg = `⚔️ ${defender.name} won the duel!`;
-        } else if (attAns === riddle.answer && defAns === riddle.answer) {
-            winner = attacker;
-            loser = defender;
-            msg = `⚔️ Both correct! ${attacker.name} wins!`;
-        } else {
-            winner = defender;
-            loser = attacker;
-            msg = `⚔️ ${defender.name} wins!`;
         }
-        
+
         loser.stunned = true;
         loser.position = -1;
-        
+
         io.to(roomId).emit('duelEnded', {
-            msg: msg,
+            message: `⚔️ ${winner.name} won! ${loser.name} was sent to Base!`,
             players: room.players
         });
-        
+
         room.state = 'PLAYING';
         room.duel = null;
-        
+        room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
+
         setTimeout(() => {
-            if (rooms[roomId]) {
-                room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
-                const nextPlayer = room.players[room.currentTurnIndex];
-                io.to(roomId).emit('turnUpdate', {
-                    activePlayerId: nextPlayer.id,
-                    activePlayerName: nextPlayer.name
-                });
-            }
-        }, 3000);
+            io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
+        }, 2000);
     }
 
-    socket.on('disconnect', () => {
-        const roomId = socketToRoom[socket.id];
-        if (roomId && rooms[roomId]) {
+    socket.on('leaveRoom', (roomId) => {
+        if (rooms[roomId]) {
             rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
+            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+
             if (rooms[roomId].players.length === 0) {
                 delete rooms[roomId];
-            } else {
-                io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+                console.log(`🗑️  Room ${roomId} deleted (empty)`);
             }
         }
         delete socketToRoom[socket.id];
-        console.log('❌ User disconnected:', socket.id);
     });
 
     socket.on('leaveGame', (roomId) => {
         if (rooms[roomId]) {
             rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
+            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+
             if (rooms[roomId].players.length === 0) {
                 delete rooms[roomId];
-            } else {
-                io.to(roomId).emit('updatePlayers', rooms[roomId].players);
             }
         }
+        delete socketToRoom[socket.id];
+    });
+
+    // ===== DISCONNECT =====
+
+    socket.on('disconnect', () => {
+        console.log(`👋 User disconnected: ${socket.id}`);
+        const roomId = socketToRoom[socket.id];
+
+        if (roomId && rooms[roomId]) {
+            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
+            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+
+            if (rooms[roomId].players.length === 0) {
+                delete rooms[roomId];
+            }
+        }
+
         delete socketToRoom[socket.id];
     });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
-    console.log(`🎮 Ludo Battlefield running on port ${PORT}`);
-    console.log(`🌐 Open: http://localhost:${PORT}`);
+server.listen(PORT, () => {
+    console.log(`\n🎮 Ludo Battlefield running on port ${PORT}`);
+    console.log(`🌐 Open http://localhost:${PORT} in your browser\n`);
 });
