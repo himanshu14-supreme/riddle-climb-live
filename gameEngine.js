@@ -1,5 +1,3 @@
-// server/gameEngine.js
-
 function movePlayer(player, roll) {
     if (player.pos === -1) {
         if (roll === 6) player.pos = 0;
