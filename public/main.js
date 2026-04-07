@@ -1,23 +1,35 @@
-import { buildBoard } from './game.js';
-import { setupSocket } from './socket.js';
+import socket from './socket.js';
+import { renderBoard } from './board.js';
+import { initGame } from './gameClient.js';
 
-const socket = setupSocket();
-
-window.createRoom = () => {
-    socket.emit('createRoom');
+window.login = () => {
+    socket.emit('auth_login', {
+        user: user.value,
+        pass: pass.value
+    });
 };
 
-window.joinRoom = () => {
-    const code = document.getElementById('roomInput').value;
-    socket.emit('joinRoom', code);
+window.register = () => {
+    socket.emit('auth_register', {
+        user: user.value,
+        pass: pass.value
+    });
 };
 
-window.rollDice = () => {
-    socket.emit('rollDice', window.currentRoom);
-};
+window.createRoom = () => socket.emit('createRoom');
+window.joinRoom = () => socket.emit('joinRoom', room.value);
+window.roll = () => socket.emit('rollDice', window.roomId);
 
-buildBoard();
-
-socket.on('roomJoined', (data) => {
-    window.currentRoom = data.roomId;
+socket.on('auth_success', () => {
+    auth.classList.add('hidden');
+    lobby.classList.remove('hidden');
 });
+
+socket.on('roomJoined', d => {
+    window.roomId = d.roomId;
+    lobby.classList.add('hidden');
+    game.classList.remove('hidden');
+});
+
+renderBoard();
+initGame();
