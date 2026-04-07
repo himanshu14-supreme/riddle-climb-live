@@ -1,392 +1,325 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const mysql = require('mysql2');
-const path = require('path');
-require('dotenv').config();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ludo Battlefield</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
-
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ==================== DATABASE CONNECTION ====================
-
-const db = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'ludo_game',
-    port: process.env.DB_PORT || 3306,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
-
-const rooms = {};
-const socketToRoom = {};
-
-const RIDDLES = [
-    { q: "What has keys but can't open locks?", options: ["Piano", "Door", "Map", "Computer"], answer: "Piano" },
-    { q: "I speak without a mouth and hear without ears.", options: ["Echo", "Ghost", "Wind", "Sound"], answer: "Echo" },
-    { q: "The more of this there is, the less you see.", options: ["Darkness", "Light", "Fog", "Shadow"], answer: "Darkness" },
-    { q: "What gets wetter the more it dries?", options: ["Towel", "Soap", "Sponge", "Rain"], answer: "Towel" },
-    { q: "I have cities but no houses. What am I?", options: ["Map", "Country", "Globe", "Atlas"], answer: "Map" },
-    { q: "What can travel around the world while staying in a corner?", options: ["Stamp", "Letter", "Plane", "Bird"], answer: "Stamp" }
-];
-
-function generateRoomCode() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
-
-function getRandom(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-}
-
-// ==================== DATABASE FUNCTIONS ====================
-
-function registerUser(username, password, callback) {
-    db.query('SELECT id FROM users WHERE username = ?', [username], (err, results) => {
-        if (err) return callback(err, null);
-        if (results && results.length > 0) return callback(new Error('Username exists'), null);
+<!-- PAGE 1: AUTH PAGE -->
+<div id="page-auth" class="page active">
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>⚔️ Ludo Battlefield</h1>
+            <p>Ancient Riddle Game</p>
+        </div>
         
-        const inventory = JSON.stringify(['avatar_peasant', 'ability_none']);
-        db.query(
-            'INSERT INTO users (username, password, coins, xp, inventory, selectedAvatar, selectedAbility) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [username, password, 600, 0, inventory, 'avatar_peasant', 'ability_none'],
-            (err) => {
-                if (err) return callback(err, null);
-                callback(null, {
-                    username,
-                    coins: 600,
-                    xp: 0,
-                    inventory: ['avatar_peasant', 'ability_none'],
-                    selectedAvatar: 'avatar_peasant',
-                    selectedAbility: 'ability_none'
-                });
-            }
-        );
-    });
-}
+        <div class="auth-tabs">
+            <button class="tab-btn active" onclick="switchAuthTab('login')">Login</button>
+            <button class="tab-btn" onclick="switchAuthTab('register')">Register</button>
+            <button class="tab-btn" onclick="switchAuthTab('guest')">Guest</button>
+        </div>
 
-function loginUser(username, password, callback) {
-    db.query(
-        'SELECT * FROM users WHERE username = ? AND password = ?',
-        [username, password],
-        (err, results) => {
-            if (err) return callback(err, null);
-            if (!results || results.length === 0) return callback(new Error('Invalid credentials'), null);
-            
-            const user = results[0];
-            callback(null, {
-                username: user.username,
-                coins: user.coins,
-                xp: user.xp,
-                inventory: typeof user.inventory === 'string' ? JSON.parse(user.inventory) : user.inventory,
-                selectedAvatar: user.selectedAvatar || 'avatar_peasant',
-                selectedAbility: user.selectedAbility || 'ability_none'
-            });
-        }
-    );
-}
+        <div id="login-tab" class="auth-tab active">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="login-username" placeholder="Enter username" maxlength="15">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password" placeholder="Enter password" maxlength="20">
+            </div>
+            <button class="btn btn-primary" onclick="handleLogin()">Login</button>
+            <p id="login-message" class="error-msg"></p>
+        </div>
 
-function saveUserData(username, data) {
-    db.query(
-        'UPDATE users SET coins=?, xp=?, inventory=?, selectedAvatar=?, selectedAbility=? WHERE username=?',
-        [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, username],
-        (err) => {
-            if (err) console.error('Save error:', err);
-        }
-    );
-}
+        <div id="register-tab" class="auth-tab">
+            <div class="form-group">
+                <label>Choose Username</label>
+                <input type="text" id="register-username" placeholder="3-15 characters" maxlength="15">
+            </div>
+            <div class="form-group">
+                <label>Set Password</label>
+                <input type="password" id="register-password" placeholder="4+ characters" maxlength="20">
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input type="password" id="register-confirm" placeholder="Confirm password" maxlength="20">
+            </div>
+            <button class="btn btn-primary" onclick="handleRegister()">Create Account</button>
+            <p id="register-message" class="error-msg"></p>
+        </div>
 
-// ==================== SOCKET CONNECTIONS ====================
+        <div id="guest-tab" class="auth-tab">
+            <div class="form-group">
+                <label>Guest Nickname</label>
+                <input type="text" id="guest-name" placeholder="Enter your name" maxlength="15">
+            </div>
+            <p class="guest-info">Play without account</p>
+            <button class="btn btn-primary" onclick="handleGuest()">Enter as Guest</button>
+            <p id="guest-message" class="error-msg"></p>
+        </div>
+    </div>
+</div>
 
-io.on('connection', (socket) => {
-    console.log(`🔗 User connected: ${socket.id}`);
+<!-- PAGE 2: LOBBY -->
+<div id="page-lobby" class="page">
+    <div class="header-bar">
+        <button class="back-btn" onclick="goBack()">←</button>
+        <h2>Grand Hall</h2>
+        <div class="header-spacer"></div>
+    </div>
 
-    // ===== AUTHENTICATION =====
+    <div class="lobby-content">
+        <div class="player-card">
+            <div class="player-avatar" id="player-avatar-display">👤</div>
+            <h3 id="player-name-display">Player</h3>
+            <div class="player-stats">
+                <div class="stat">
+                    <span class="label">💰 Coins:</span>
+                    <span class="value" id="player-coins-display">0</span>
+                </div>
+                <div class="stat">
+                    <span class="label">⚡ XP:</span>
+                    <span class="value" id="player-xp-display">0</span>
+                </div>
+            </div>
+        </div>
 
-    socket.on('auth_register', (data) => {
-        const { username, password } = data;
-        
-        if (!username || !password || username.length < 3) {
-            return socket.emit('auth_error', 'Invalid input');
-        }
+        <div class="menu-section">
+            <h4>Shop & Inventory</h4>
+            <button class="btn btn-secondary" onclick="goToPage('shop')">🛍️ The Armory</button>
+            <button class="btn btn-secondary" onclick="goToPage('vault')">🏺 Vault</button>
+        </div>
 
-        registerUser(username, password, (err, userData) => {
-            if (err) return socket.emit('auth_error', err.message);
-            socket.username = username;
-            socket.emit('auth_success', userData);
-        });
-    });
+        <div class="menu-section">
+            <h4>Learn & Play</h4>
+            <button class="btn btn-secondary" onclick="goToPage('rules')">📖 How to Play</button>
+        </div>
 
-    socket.on('auth_login', (data) => {
-        const { username, password } = data;
-        
-        if (!username || !password) {
-            return socket.emit('auth_error', 'Fill in all fields');
-        }
+        <div class="menu-section">
+            <h4>Multiplayer</h4>
+            <button class="btn btn-primary" onclick="goToPage('create-room')">🔥 Create New Room</button>
+            <button class="btn btn-secondary" onclick="goToPage('join-room')">📍 Join Room</button>
+        </div>
 
-        loginUser(username, password, (err, userData) => {
-            if (err) return socket.emit('auth_error', err.message);
-            socket.username = username;
-            socket.emit('auth_success', userData);
-        });
-    });
+        <button class="btn btn-logout" onclick="handleLogout()">Logout</button>
+    </div>
+</div>
 
-    socket.on('save_data', (data) => {
-        if (socket.username) {
-            saveUserData(socket.username, data);
-        }
-    });
+<!-- PAGE 3: SHOP -->
+<div id="page-shop" class="page">
+    <div class="header-bar">
+        <button class="back-btn" onclick="goBack()">←</button>
+        <h2>🛍️ The Armory</h2>
+        <div class="header-spacer"></div>
+    </div>
 
-    // ===== ROOM MANAGEMENT =====
+    <div class="shop-content">
+        <div class="coins-display">
+            💰 Coins: <span id="shop-coins">0</span>
+        </div>
+        <div class="shop-grid" id="shop-items"></div>
+    </div>
+</div>
 
-    socket.on('createRoom', (data) => {
-        const roomId = generateRoomCode();
-        const player = {
-            id: socket.id,
-            name: data.playerData.name || data.playerData.username,
-            username: data.playerData.username,
-            position: -1,
-            stunned: false,
-            selectedAvatar: data.playerData.selectedAvatar,
-            selectedAbility: data.playerData.selectedAbility
-        };
+<!-- PAGE 4: VAULT -->
+<div id="page-vault" class="page">
+    <div class="header-bar">
+        <button class="back-btn" onclick="goBack()">←</button>
+        <h2>🏺 Your Vault</h2>
+        <div class="header-spacer"></div>
+    </div>
 
-        rooms[roomId] = {
-            id: roomId,
-            players: [player],
-            state: 'LOBBY',
-            activePlayerIndex: 0,
-            duel: null
-        };
+    <div class="vault-content">
+        <div id="vault-items" class="shop-grid"></div>
+    </div>
+</div>
 
-        socket.join(roomId);
-        socketToRoom[socket.id] = roomId;
+<!-- PAGE 5: RULES -->
+<div id="page-rules" class="page">
+    <div class="header-bar">
+        <button class="back-btn" onclick="goBack()">←</button>
+        <h2>📖 How to Play</h2>
+        <div class="header-spacer"></div>
+    </div>
 
-        socket.emit('roomJoined', {
-            roomId,
-            isHost: true,
-            gameState: rooms[roomId]
-        });
+    <div class="rules-content">
+        <div class="rule-section">
+            <h3>🎲 Movement</h3>
+            <p>Roll the dice to move your token around the board. Each player has their own colored track.</p>
+        </div>
 
-        io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-        console.log(`🏠 Room ${roomId} created by ${player.name}`);
-    });
+        <div class="rule-section">
+            <h3>⚔️ Duels</h3>
+            <p>Land on an opponent's token to trigger a riddle duel. Answer faster to win and send them back to base!</p>
+        </div>
 
-    socket.on('joinRoom', (data) => {
-        const roomId = data.roomCode;
+        <div class="rule-section">
+            <h3>😵 Stunned</h3>
+            <p>If you lose a duel, you're stunned and sent back to your base. Roll again to escape.</p>
+        </div>
 
-        if (!rooms[roomId]) {
-            return socket.emit('auth_error', 'Room not found');
-        }
+        <div class="rule-section">
+            <h3>🏁 Victory</h3>
+            <p>First player to reach the center HOME and complete the path wins the game!</p>
+        </div>
 
-        if (rooms[roomId].state !== 'LOBBY') {
-            return socket.emit('auth_error', 'Game already started');
-        }
+        <div class="rule-section">
+            <h3>💎 Rewards</h3>
+            <p>Win matches to earn coins and XP. Use coins to buy avatars and abilities in the shop!</p>
+        </div>
+    </div>
+</div>
 
-        if (rooms[roomId].players.length >= 4) {
-            return socket.emit('auth_error', 'Room is full');
-        }
+<!-- PAGE 6: CREATE ROOM -->
+<div id="page-create-room" class="page">
+    <div class="header-bar">
+        <button class="back-btn" onclick="goBack()">←</button>
+        <h2>🔥 Create New Room</h2>
+        <div class="header-spacer"></div>
+    </div>
 
-        const player = {
-            id: socket.id,
-            name: data.playerData.name || data.playerData.username,
-            username: data.playerData.username,
-            position: -1,
-            stunned: false,
-            selectedAvatar: data.playerData.selectedAvatar,
-            selectedAbility: data.playerData.selectedAbility
-        };
+    <div class="create-room-content">
+        <div class="form-group">
+            <label>Room Name (Optional)</label>
+            <input type="text" id="room-name" placeholder="Give your room a name" maxlength="30">
+        </div>
 
-        rooms[roomId].players.push(player);
-        socket.join(roomId);
-        socketToRoom[socket.id] = roomId;
+        <div class="info-box">
+            <p>✓ You will be the host</p>
+            <p>✓ Up to 4 players can join</p>
+            <p>✓ Share the room code with friends</p>
+        </div>
 
-        socket.emit('roomJoined', {
-            roomId,
-            isHost: false,
-            gameState: rooms[roomId]
-        });
+        <button class="btn btn-primary" onclick="handleCreateRoom()">Create Room</button>
+        <p id="create-message" class="error-msg"></p>
+    </div>
+</div>
 
-        io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-        console.log(`👤 ${player.name} joined room ${roomId}`);
-    });
+<!-- PAGE 7: JOIN ROOM -->
+<div id="page-join-room" class="page">
+    <div class="header-bar">
+        <button class="back-btn" onclick="goBack()">←</button>
+        <h2>📍 Join Room</h2>
+        <div class="header-spacer"></div>
+    </div>
 
-    socket.on('startGame', (roomId) => {
-        if (!rooms[roomId] || rooms[roomId].players[0].id !== socket.id) {
-            return socket.emit('auth_error', 'Only host can start game');
-        }
+    <div class="join-room-content">
+        <div class="form-group">
+            <label>Enter Room Code</label>
+            <input type="text" id="join-code" placeholder="e.g., A1B2C3" maxlength="10">
+        </div>
 
-        rooms[roomId].state = 'PLAYING';
-        rooms[roomId].activePlayerIndex = 0;
-        io.to(roomId).emit('gameStarted');
-        io.to(roomId).emit('turnUpdate', {
-            activePlayerIndex: 0
-        });
-        console.log(`🎮 Game started in room ${roomId}`);
-    });
+        <div class="info-box">
+            <p>✓ Get the room code from your friend</p>
+            <p>✓ Room codes are 6 characters</p>
+            <p>✓ Max 4 players per room</p>
+        </div>
 
-    // ===== GAME LOGIC =====
+        <button class="btn btn-primary" onclick="handleJoinRoom()">Join Room</button>
+        <p id="join-message" class="error-msg"></p>
+    </div>
+</div>
 
-    socket.on('rollDice', (roomId) => {
-        const room = rooms[roomId];
-        if (!room || room.state !== 'PLAYING') return;
+<!-- PAGE 8: WAITING ROOM -->
+<div id="page-waiting" class="page">
+    <div class="header-bar">
+        <button class="back-btn" onclick="handleLeaveRoom()">←</button>
+        <h2>Waiting Room</h2>
+        <div class="header-spacer"></div>
+    </div>
 
-        const activePlayer = room.players[room.activePlayerIndex];
-        if (activePlayer.id !== socket.id) return;
+    <div class="waiting-content">
+        <div class="room-info">
+            <p class="room-code">Room Code: <strong id="display-room-code">XXXX</strong></p>
+            <p class="room-status">
+                <span id="player-count">1</span>/4 Players
+                <span id="host-badge" class="badge"></span>
+            </p>
+        </div>
 
-        const roll = Math.floor(Math.random() * 6) + 1;
+        <div class="players-waiting">
+            <h4>👥 Players in Room</h4>
+            <div id="waiting-players-list" class="players-list"></div>
+        </div>
 
-        if (activePlayer.stunned) {
-            activePlayer.stunned = false;
-            io.to(roomId).emit('diceRolled', { roll, players: room.players });
+        <div id="start-game-section" class="hidden">
+            <button class="btn btn-primary" onclick="handleStartGame()">🎮 Start Game</button>
+        </div>
 
-            setTimeout(() => {
-                room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
-                io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
-            }, 2000);
-            return;
-        }
+        <div id="waiting-message" class="info-box">
+            Waiting for other players...
+        </div>
+    </div>
+</div>
 
-        if (activePlayer.position === -1) {
-            activePlayer.position = roll - 1;
-        } else {
-            activePlayer.position += roll;
-            if (activePlayer.position > 56) activePlayer.position = 56;
-        }
+<!-- PAGE 9: GAME BOARD -->
+<div id="page-game" class="page">
+    <div class="header-bar">
+        <button class="back-btn" onclick="handleLeaveGame()">←</button>
+        <h2>⚔️ Battle</h2>
+        <div class="header-spacer"></div>
+    </div>
 
-        io.to(roomId).emit('diceRolled', { roll, players: room.players });
+    <div class="game-content">
+        <div class="game-info">
+            <p>Room: <strong id="game-room-code">XXXX</strong></p>
+            <p id="turn-info">Waiting to start...</p>
+        </div>
 
-        setTimeout(() => {
-            const collision = room.players.find(p =>
-                p.id !== activePlayer.id &&
-                p.position === activePlayer.position &&
-                p.position !== -1 &&
-                p.position !== 56
-            );
+        <div class="board-section">
+            <div id="ludo-board-container" class="ludo-board-container">
+                <div id="ludo-board" class="ludo-board"></div>
+            </div>
+        </div>
 
-            if (collision) {
-                room.state = 'DUEL';
-                const riddle = getRandom(RIDDLES);
-                room.duel = {
-                    attacker: activePlayer,
-                    defender: collision,
-                    riddle,
-                    answers: {}
-                };
+        <div class="game-controls">
+            <div class="players-panel">
+                <h4>👥 Roster</h4>
+                <div id="game-players-list" class="players-list"></div>
+            </div>
 
-                io.to(roomId).emit('startDuel', {
-                    riddle: { q: riddle.q, options: riddle.options },
-                    p1: activePlayer.id,
-                    p2: collision.id
-                });
+            <div class="dice-panel">
+                <div class="dice-wrapper">
+                    <div class="scene">
+                        <div class="cube" id="dice-cube">
+                            <div class="cube__face cube__face--front">1</div>
+                            <div class="cube__face cube__face--back">6</div>
+                            <div class="cube__face cube__face--right">3</div>
+                            <div class="cube__face cube__face--left">4</div>
+                            <div class="cube__face cube__face--top">5</div>
+                            <div class="cube__face cube__face--bottom">2</div>
+                        </div>
+                    </div>
+                </div>
+                <button id="roll-btn" class="btn btn-primary" onclick="rollDice()" disabled>🎲 ROLL</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-                setTimeout(() => resolveDuel(roomId, 'timeout'), 16000);
-            } else if (activePlayer.position === 56) {
-                io.to(roomId).emit('gameEnded', { winner: activePlayer.name });
-                room.state = 'LOBBY';
-            } else {
-                room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
-                io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
-            }
-        }, 1500);
-    });
+<!-- PAGE 10: DUEL MODAL -->
+<div id="duel-overlay" class="overlay hidden">
+    <div class="duel-modal">
+        <h2>⚔️ BATTLE INITIATED!</h2>
+        <div class="duel-content">
+            <h3 id="duel-question">Loading riddle...</h3>
+            <div id="duel-options" class="duel-options"></div>
+            <div class="duel-timer-display">
+                <span id="duel-timer">15</span>s
+            </div>
+        </div>
+    </div>
+</div>
 
-    socket.on('submitDuelAnswer', (data) => {
-        const room = rooms[data.roomId];
-        if (!room || room.state !== 'DUEL') return;
+<!-- TOAST NOTIFICATIONS -->
+<div id="toast-container" class="toast-container"></div>
 
-        room.duel.answers[socket.id] = data.answer;
-
-        if (Object.keys(room.duel.answers).length === 2) {
-            resolveDuel(data.roomId, 'answered');
-        }
-    });
-
-    function resolveDuel(roomId, reason) {
-        const room = rooms[roomId];
-        if (!room || !room.duel) return;
-
-        const { attacker, defender, riddle, answers } = room.duel;
-        const attAns = answers[attacker.id];
-        const defAns = answers[defender.id];
-
-        let winner = attacker, loser = defender;
-
-        if (defAns === riddle.answer && attAns !== riddle.answer) {
-            winner = defender;
-            loser = attacker;
-        }
-
-        loser.stunned = true;
-        loser.position = -1;
-
-        io.to(roomId).emit('duelEnded', {
-            message: `⚔️ ${winner.name} won! ${loser.name} was sent to Base!`,
-            players: room.players
-        });
-
-        room.state = 'PLAYING';
-        room.duel = null;
-        room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
-
-        setTimeout(() => {
-            io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
-        }, 2000);
-    }
-
-    socket.on('leaveRoom', (roomId) => {
-        if (rooms[roomId]) {
-            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-
-            if (rooms[roomId].players.length === 0) {
-                delete rooms[roomId];
-                console.log(`🗑️  Room ${roomId} deleted (empty)`);
-            }
-        }
-        delete socketToRoom[socket.id];
-    });
-
-    socket.on('leaveGame', (roomId) => {
-        if (rooms[roomId]) {
-            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-
-            if (rooms[roomId].players.length === 0) {
-                delete rooms[roomId];
-            }
-        }
-        delete socketToRoom[socket.id];
-    });
-
-    // ===== DISCONNECT =====
-
-    socket.on('disconnect', () => {
-        console.log(`👋 User disconnected: ${socket.id}`);
-        const roomId = socketToRoom[socket.id];
-
-        if (roomId && rooms[roomId]) {
-            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-
-            if (rooms[roomId].players.length === 0) {
-                delete rooms[roomId];
-            }
-        }
-
-        delete socketToRoom[socket.id];
-    });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`\n🎮 Ludo Battlefield running on port ${PORT}`);
-    console.log(`🌐 Open http://localhost:${PORT} in your browser\n`);
-});
-
-          
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
