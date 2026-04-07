@@ -1,5 +1,3 @@
-// server/roomManager.js
-
 const rooms = {};
 
 function createRoom(socket) {
