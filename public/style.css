@@ -1,1 +1,916 @@
-"================================================================================\n📄 FILE 2: style.css\n================================================================================\n* {\n    margin: 0;\n    padding: 0;\n    box-sizing: border-box;\n}\n\n:root {\n    --primary: #fbbf24;\n    --primary-dark: #f59e0b;\n    --secondary: #3b82f6;\n    --success: #10b981;\n    --danger: #ef4444;\n    --warning: #f97316;\n    --dark-bg: #0f172a;\n    --dark-bg-2: #1e293b;\n    --dark-bg-3: #334155;\n    --text-light: #f1f5f9;\n    --text-dim: #94a3b8;\n    --border: rgba(255, 255, 255, 0.1);\n    --red: #dc2626;\n    --green: #059669;\n    --blue: #1d4ed8;\n    --yellow: #ca8a04;\n}\n\nhtml, body {\n    width: 100%;\n    height: 100%;\n    font-family: 'Inter', sans-serif;\n    background: linear-gradient(135deg, var(--dark-bg) 0%, #020617 100%);\n    color: var(--text-light);\n    overflow: hidden;\n}\n\nbody {\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.page {\n    position: fixed;\n    top: 0;\n    left: 0;\n    width: 100%;\n    height: 100%;\n    background: linear-gradient(135deg, var(--dark-bg) 0%, #020617 100%);\n    display: flex;\n    flex-direction: column;\n    opacity: 0;\n    visibility: hidden;\n    transition: all 0.3s ease;\n    z-index: 10;\n}\n\n.page.active {\n    opacity: 1;\n    visibility: visible;\n    z-index: 100;\n}\n\n.page.slide-out {\n    transform: translateX(-100%);\n    opacity: 0;\n}\n\n.page.slide-in {\n    transform: translateX(100%);\n    animation: slideInFromRight 0.3s ease forwards;\n}\n\n@keyframes slideInFromRight {\n    to {\n        transform: translateX(0);\n        opacity: 1;\n    }\n}\n\n.header-bar {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    padding: 20px;\n    background: rgba(30, 41, 59, 0.9);\n    border-bottom: 1px solid var(--border);\n    backdrop-filter: blur(10px);\n}\n\n.header-bar h2 {\n    font-size: 1.5rem;\n    margin: 0;\n    color: var(--primary);\n}\n\n.back-btn {\n    background: none;\n    border: 2px solid var(--text-dim);\n    color: var(--text-dim);\n    width: 40px;\n    height: 40px;\n    border-radius: 50%;\n    cursor: pointer;\n    font-size: 1.2rem;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    transition: all 0.2s;\n}\n\n.back-btn:hover {\n    background: var(--primary);\n    color: #000;\n    border-color: var(--primary);\n}\n\n.header-spacer {\n    width: 40px;\n}\n\n.btn {\n    padding: 12px 24px;\n    border: none;\n    border-radius: 10px;\n    font-weight: 600;\n    cursor: pointer;\n    transition: all 0.2s;\n    font-size: 1rem;\n    width: 100%;\n}\n\n.btn-primary {\n    background: var(--primary);\n    color: #000;\n}\n\n.btn-primary:hover:not(:disabled) {\n    background: var(--primary-dark);\n    transform: translateY(-2px);\n}\n\n.btn-secondary {\n    background: var(--dark-bg-3);\n    color: var(--text-light);\n    border: 1px solid var(--border);\n}\n\n.btn-secondary:hover:not(:disabled) {\n    background: var(--secondary);\n    border-color: var(--secondary);\n}\n\n.btn-logout {\n    background: rgba(239, 68, 68, 0.1);\n    color: var(--danger);\n    border: 1px solid var(--danger);\n}\n\n.btn-logout:hover {\n    background: var(--danger);\n    color: white;\n}\n\n.btn:disabled {\n    opacity: 0.5;\n    cursor: not-allowed;\n}\n\n.form-group {\n    margin-bottom: 20px;\n    display: flex;\n    flex-direction: column;\n}\n\n.form-group label {\n    font-weight: 600;\n    margin-bottom: 8px;\n    color: var(--text-light);\n}\n\n.form-group input {\n    padding: 12px;\n    background: rgba(0, 0, 0, 0.3);\n    border: 1px solid var(--border);\n    border-radius: 8px;\n    color: var(--text-light);\n    font-size: 1rem;\n    transition: all 0.2s;\n}\n\n.form-group input:focus {\n    outline: none;\n    border-color: var(--primary);\n    background: rgba(251, 191, 36, 0.05);\n}\n\n.auth-container {\n    max-width: 450px;\n    margin: auto;\n    padding: 40px 30px;\n    height: 100vh;\n    display: flex;\n    flex-direction: column;\n    justify-content: center;\n}\n\n.auth-header {\n    text-align: center;\n    margin-bottom: 40px;\n}\n\n.auth-header h1 {\n    font-size: 2.5rem;\n    color: var(--primary);\n    margin-bottom: 10px;\n}\n\n.auth-header p {\n    color: var(--text-dim);\n    font-size: 1rem;\n}\n\n.auth-tabs {\n    display: flex;\n    gap: 10px;\n    margin-bottom: 30px;\n    background: rgba(0, 0, 0, 0.3);\n    padding: 5px;\n    border-radius: 10px;\n}\n\n.tab-btn {\n    flex: 1;\n    padding: 10px;\n    background: transparent;\n    border: none;\n    color: var(--text-dim);\n    cursor: pointer;\n    font-weight: 600;\n    border-radius: 8px;\n    transition: all 0.2s;\n}\n\n.tab-btn.active {\n    background: var(--primary);\n    color: #000;\n}\n\n.tab-btn:hover {\n    color: var(--text-light);\n}\n\n.auth-tab {\n    display: none;\n}\n\n.auth-tab.active {\n    display: block;\n    animation: fadeIn 0.3s ease;\n}\n\n@keyframes fadeIn {\n    from { opacity: 0; }\n    to { opacity: 1; }\n}\n\n.error-msg {\n    color: var(--danger);\n    font-size: 0.9rem;\n    margin-top: 10px;\n    text-align: center;\n}\n\n.guest-info {\n    text-align: center;\n    color: var(--text-dim);\n    margin-bottom: 20px;\n}\n\n.lobby-content {\n    flex: 1;\n    overflow-y: auto;\n    padding: 20px;\n    max-width: 600px;\n    margin: 0 auto;\n    width: 100%;\n}\n\n.player-card {\n    background: rgba(30, 41, 59, 0.7);\n    border: 1px solid var(--border);\n    border-radius: 15px;\n    padding: 20px;\n    text-align: center;\n    margin-bottom: 30px;\n    backdrop-filter: blur(10px);\n}\n\n.player-avatar {\n    font-size: 3rem;\n    margin-bottom: 10px;\n}\n\n.player-card h3 {\n    font-size: 1.5rem;\n    color: var(--primary);\n    margin-bottom: 15px;\n}\n\n.player-stats {\n    display: flex;\n    gap: 20px;\n    justify-content: center;\n}\n\n.stat {\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n}\n\n.stat .label {\n    color: var(--text-dim);\n    font-size: 0.9rem;\n    margin-bottom: 5px;\n}\n\n.stat .value {\n    font-size: 1.3rem;\n    font-weight: 700;\n    color: var(--primary);\n}\n\n.menu-section {\n    margin-bottom: 25px;\n}\n\n.menu-section h4 {\n    color: var(--text-dim);\n    font-size: 0.85rem;\n    text-transform: uppercase;\n    letter-spacing: 1px;\n    margin-bottom: 12px;\n}\n\n.menu-section .btn {\n    margin-bottom: 10px;\n}\n\n.shop-content,\n.vault-content,\n.create-room-content,\n.join-room-content,\n.rules-content {\n    flex: 1;\n    overflow-y: auto;\n    padding: 20px;\n    max-width: 900px;\n    margin: 0 auto;\n    width: 100%;\n}\n\n.coins-display {\n    background: rgba(251, 191, 36, 0.1);\n    border: 1px solid var(--primary);\n    padding: 15px;\n    border-radius: 10px;\n    margin-bottom: 20px;\n    text-align: center;\n    font-weight: 600;\n    color: var(--primary);\n    font-size: 1.1rem;\n}\n\n.shop-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));\n    gap: 15px;\n}\n\n.shop-item {\n    background: rgba(0, 0, 0, 0.3);\n    border: 1px solid var(--border);\n    border-radius: 12px;\n    padding: 15px;\n    text-align: center;\n    transition: all 0.2s;\n}\n\n.shop-item:hover {\n    transform: translateY(-4px);\n    border-color: var(--primary);\n    background: rgba(251, 191, 36, 0.08);\n}\n\n.shop-item .icon {\n    font-size: 2.5rem;\n    margin-bottom: 10px;\n}\n\n.shop-item h4 {\n    font-size: 0.95rem;\n    margin-bottom: 5px;\n}\n\n.shop-item p {\n    color: var(--text-dim);\n    font-size: 0.8rem;\n    margin-bottom: 10px;\n}\n\n.shop-item .price {\n    color: var(--primary);\n    font-weight: 700;\n    margin-bottom: 10px;\n}\n\n.shop-item .btn {\n    padding: 8px 12px;\n    font-size: 0.85rem;\n}\n\n.rule-section {\n    background: rgba(30, 41, 59, 0.7);\n    border-left: 4px solid var(--primary);\n    padding: 20px;\n    margin-bottom: 15px;\n    border-radius: 8px;\n    backdrop-filter: blur(10px);\n}\n\n.rule-section h3 {\n    color: var(--primary);\n    margin-bottom: 10px;\n}\n\n.rule-section p {\n    color: var(--text-dim);\n    line-height: 1.6;\n}\n\n.info-box {\n    background: rgba(16, 185, 129, 0.1);\n    border: 1px solid var(--success);\n    padding: 15px;\n    border-radius: 10px;\n    margin: 20px 0;\n    color: var(--success);\n}\n\n.info-box p {\n    margin: 8px 0;\n}\n\n.waiting-content {\n    flex: 1;\n    overflow-y: auto;\n    padding: 20px;\n    max-width: 600px;\n    margin: 0 auto;\n    width: 100%;\n    display: flex;\n    flex-direction: column;\n}\n\n.room-info {\n    background: rgba(251, 191, 36, 0.1);\n    border: 1px solid var(--primary);\n    padding: 20px;\n    border-radius: 12px;\n    margin-bottom: 20px;\n    text-align: center;\n}\n\n.room-code {\n    font-size: 1rem;\n    margin-bottom: 10px;\n}\n\n.room-code strong {\n    color: var(--primary);\n    font-size: 1.3rem;\n    font-family: monospace;\n}\n\n.room-status {\n    color: var(--text-dim);\n    font-size: 0.95rem;\n}\n\n.badge {\n    display: inline-block;\n    background: var(--primary);\n    color: #000;\n    padding: 4px 8px;\n    border-radius: 4px;\n    font-size: 0.75rem;\n    margin-left: 10px;\n    font-weight: 700;\n}\n\n.players-waiting {\n    background: rgba(30, 41, 59, 0.7);\n    border: 1px solid var(--border);\n    padding: 20px;\n    border-radius: 12px;\n    margin-bottom: 20px;\n    flex: 1;\n    backdrop-filter: blur(10px);\n}\n\n.players-waiting h4 {\n    margin-bottom: 15px;\n    color: var(--primary);\n}\n\n.players-list {\n    display: flex;\n    flex-direction: column;\n    gap: 10px;\n}\n\n.player-item {\n    background: rgba(0, 0, 0, 0.3);\n    padding: 12px;\n    border-radius: 8px;\n    border-left: 4px solid var(--primary);\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n}\n\n.player-item.active {\n    background: rgba(251, 191, 36, 0.15);\n    border-left-color: var(--primary);\n}\n\n.player-name {\n    display: flex;\n    align-items: center;\n    gap: 10px;\n}\n\n.player-avatar-small {\n    font-size: 1.5rem;\n}\n\n.player-status {\n    font-size: 0.85rem;\n    color: var(--text-dim);\n}\n\n#start-game-section {\n    margin-top: auto;\n}\n\n#start-game-section.hidden {\n    display: none;\n}\n\n.game-content {\n    flex: 1;\n    overflow-y: auto;\n    padding: 20px;\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n    max-width: 1400px;\n    margin: 0 auto;\n    width: 100%;\n}\n\n.game-info {\n    background: rgba(30, 41, 59, 0.7);\n    border: 1px solid var(--border);\n    padding: 15px 20px;\n    border-radius: 10px;\n    margin-bottom: 20px;\n    width: 100%;\n    text-align: center;\n    backdrop-filter: blur(10px);\n}\n\n.game-info p {\n    margin: 5px 0;\n    font-size: 0.95rem;\n}\n\n.board-section {\n    display: flex;\n    justify-content: center;\n    margin-bottom: 20px;\n    width: 100%;\n}\n\n.ludo-board-container {\n    position: relative;\n    width: 100%;\n    max-width: 600px;\n    aspect-ratio: 1 / 1;\n    background: var(--dark-bg-2);\n    border: 6px solid var(--dark-bg-3);\n    border-radius: 12px;\n    padding: 10px;\n    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8), 0 15px 40px rgba(0, 0, 0, 0.6);\n    overflow: hidden;\n}\n\n.ludo-board {\n    width: 100%;\n    height: 100%;\n    display: grid;\n    grid-template-columns: repeat(15, 1fr);\n    grid-template-rows: repeat(15, 1fr);\n    gap: 2px;\n    background: #000;\n}\n\n.ludo-cell {\n    background: var(--dark-bg-3);\n    border-radius: 2px;\n    position: relative;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    overflow: hidden;\n}\n\n.ludo-cell.path {\n    background: #e2e8f0;\n    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);\n}\n\n.ludo-cell.safe {\n    background: #fef08a;\n    border: 2px solid #cbd5e1;\n}\n\n.ludo-cell.home {\n    background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(251, 191, 36, 0.1));\n    border: 2px solid var(--primary);\n}\n\n.ludo-cell.base-red {\n    background: rgba(220, 38, 38, 0.15);\n    border: 1px dashed rgba(220, 38, 38, 0.4);\n}\n\n.ludo-cell.base-green {\n    background: rgba(5, 150, 105, 0.15);\n    border: 1px dashed rgba(5, 150, 105, 0.4);\n}\n\n.ludo-cell.base-blue {\n    background: rgba(29, 78, 216, 0.15);\n    border: 1px dashed rgba(29, 78, 216, 0.4);\n}\n\n.ludo-cell.base-yellow {\n    background: rgba(202, 138, 4, 0.15);\n    border: 1px dashed rgba(202, 138, 4, 0.4);\n}\n\n.center-home {\n    grid-column: 8 / 9;\n    grid-row: 8 / 9;\n    background: linear-gradient(135deg, var(--primary), #f59e0b);\n    border: 3px solid var(--primary) !important;\n    font-size: 2rem;\n    z-index: 50;\n    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3), 0 0 20px rgba(251, 191, 36, 0.4);\n}\n\n.token {\n    position: absolute;\n    width: 75%;\n    height: 75%;\n    border-radius: 50%;\n    border: 2px solid white;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    font-size: 1rem;\n    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.3);\n    z-index: 10;\n    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);\n    cursor: pointer;\n}\n\n.token.stunned {\n    filter: grayscale(1) opacity(0.4);\n    border: 2px dashed var(--danger);\n    animation: shake 0.4s infinite;\n}\n\n@keyframes shake {\n    0%, 100% { transform: translateX(0); }\n    25% { transform: translateX(-2px); }\n    75% { transform: translateX(2px); }\n}\n\n.game-controls {\n    width: 100%;\n    max-width: 1200px;\n    display: flex;\n    gap: 30px;\n    background: rgba(30, 41, 59, 0.7);\n    border: 1px solid var(--border);\n    border-radius: 12px;\n    padding: 20px;\n    backdrop-filter: blur(10px);\n}\n\n.players-panel {\n    flex: 1;\n    min-width: 200px;\n}\n\n.players-panel h4 {\n    color: var(--primary);\n    margin-bottom: 15px;\n}\n\n.dice-panel {\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n    justify-content: center;\n    gap: 15px;\n}\n\n.dice-wrapper {\n    perspective: 1000px;\n}\n\n.scene {\n    width: 100px;\n    height: 100px;\n    perspective: 1000px;\n}\n\n.cube {\n    width: 100%;\n    height: 100%;\n    position: relative;\n    transform-style: preserve-3d;\n    transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);\n}\n\n.cube.rolling {\n    animation: rollDice 1s ease-out;\n}\n\n@keyframes rollDice {\n    0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }\n    100% { transform: rotateX(720deg) rotateY(720deg) rotateZ(360deg); }\n}\n\n.cube__face {\n    position: absolute;\n    width: 100px;\n    height: 100px;\n    background: linear-gradient(135deg, var(--primary), #f59e0b);\n    border: 2px solid #f59e0b;\n    border-radius: 8px;\n    color: #000;\n    font-size: 2rem;\n    font-weight: 800;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    box-shadow: inset 0 -2px 5px rgba(0, 0, 0, 0.3);\n}\n\n.cube__face--front  { transform: rotateY(0deg) translateZ(50px); }\n.cube__face--back   { transform: rotateY(180deg) translateZ(50px); }\n.cube__face--right  { transform: rotateY(90deg) translateZ(50px); }\n.cube__face--left   { transform: rotateY(-90deg) translateZ(50px); }\n.cube__face--top    { transform: rotateX(90deg) translateZ(50px); }\n.cube__face--bottom { transform: rotateX(-90deg) translateZ(50px); }\n\n#roll-btn {\n    min-width: 140px;\n}\n\n.overlay {\n    position: fixed;\n    top: 0;\n    left: 0;\n    width: 100%;\n    height: 100%;\n    background: rgba(0, 0, 0, 0.8);\n    backdrop-filter: blur(4px);\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    z-index: 9999;\n}\n\n.overlay.hidden {\n    display: none;\n}\n\n.duel-modal {\n    background: rgba(30, 41, 59, 0.95);\n    border: 3px solid var(--danger);\n    border-radius: 20px;\n    padding: 40px;\n    max-width: 600px;\n    width: 90%;\n    text-align: center;\n    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);\n}\n\n.duel-modal h2 {\n    color: var(--danger);\n    margin-bottom: 20px;\n    font-size: 1.8rem;\n}\n\n.duel-content {\n    margin: 20px 0;\n}\n\n#duel-question {\n    color: var(--text-light);\n    font-size: 1.1rem;\n    margin-bottom: 20px;\n    line-height: 1.6;\n}\n\n.duel-options {\n    display: flex;\n    flex-direction: column;\n    gap: 10px;\n    margin-bottom: 20px;\n}\n\n.duel-option {\n    padding: 14px;\n    background: rgba(0, 0, 0, 0.3);\n    border: 2px solid var(--border);\n    border-radius: 10px;\n    color: var(--text-light);\n    cursor: pointer;\n    font-weight: 500;\n    transition: all 0.2s;\n}\n\n.duel-option:hover:not(:disabled) {\n    background: rgba(251, 191, 36, 0.15);\n    border-color: var(--primary);\n}\n\n.duel-option.selected {\n    background: var(--primary) !important;\n    color: #000 !important;\n    border-color: var(--primary) !important;\n}\n\n.duel-option:disabled {\n    opacity: 0.6;\n}\n\n.duel-timer-display {\n    font-size: 2rem;\n    color: var(--primary);\n    font-weight: 800;\n}\n\n.toast-container {\n    position: fixed;\n    top: 20px;\n    right: 20px;\n    display: flex;\n    flex-direction: column;\n    gap: 10px;\n    z-index: 10000;\n    pointer-events: none;\n}\n\n.toast {\n    background: var(--primary);\n    color: #000;\n    padding: 14px 20px;\n    border-radius: 10px;\n    font-weight: 600;\n    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);\n    animation: toastSlide 0.3s ease forwards;\n    pointer-events: auto;\n}\n\n@keyframes toastSlide {\n    from {\n        transform: translateX(400px);\n        opacity: 0;\n    }\n    to {\n        transform: translateX(0);\n        opacity: 1;\n    }\n}\n\n::-webkit-scrollbar {\n    width: 8px;\n}\n\n::-webkit-scrollbar-track {\n    background: rgba(0, 0, 0, 0.3);\n}\n\n::-webkit-scrollbar-thumb {\n    background: var(--primary);\n    border-radius: 4px;\n}\n\n::-webkit-scrollbar-thumb:hover {\n    background: var(--primary-dark);\n}\n\n@media (max-width: 768px) {\n    .game-controls {\n        flex-direction: column;\n        gap: 20px;\n    }\n\n    .ludo-board-container {\n        max-width: 90vw;\n    }\n\n    .duel-modal {\n        padding: 30px 20px;\n    }\n\n    .auth-container {\n        padding: 30px 20px;\n    }\n\n    .shop-grid {\n        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));\n    }\n}\n\n.hidden {\n    display: none !important;\n}\n\n\n================================================================================\n✅ Copy the entire code above and paste into: public/style.css\n================================================================================\n"
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #fbbf24;
+    --primary-dark: #f59e0b;
+    --secondary: #3b82f6;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f97316;
+    --dark-bg: #0f172a;
+    --dark-bg-2: #1e293b;
+    --dark-bg-3: #334155;
+    --text-light: #f1f5f9;
+    --text-dim: #94a3b8;
+    --border: rgba(255, 255, 255, 0.1);
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, var(--dark-bg) 0%, #020617 100%);
+    color: var(--text-light);
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--dark-bg) 0%, #020617 100%);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.page.active {
+    opacity: 1;
+    visibility: visible;
+    z-index: 100;
+}
+
+.page.slide-out {
+    transform: translateX(-100%);
+    opacity: 0;
+}
+
+.header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    background: rgba(30, 41, 59, 0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+}
+
+.header-bar h2 {
+    font-size: 1.5rem;
+    margin: 0;
+    color: var(--primary);
+}
+
+.back-btn {
+    background: none;
+    border: 2px solid var(--text-dim);
+    color: var(--text-dim);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.back-btn:hover {
+    background: var(--primary);
+    color: #000;
+    border-color: var(--primary);
+}
+
+.header-spacer {
+    width: 40px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+    width: 100%;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #000;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background: var(--dark-bg-3);
+    color: var(--text-light);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--secondary);
+    border-color: var(--secondary);
+}
+
+.btn-logout {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+}
+
+.btn-logout:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-light);
+}
+
+.form-group input {
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-light);
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: rgba(251, 191, 36, 0.05);
+}
+
+.auth-container {
+    max-width: 450px;
+    margin: auto;
+    padding: 40px 30px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.auth-header h1 {
+    font-size: 2.5rem;
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+.auth-header p {
+    color: var(--text-dim);
+    font-size: 1rem;
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 5px;
+    border-radius: 10px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: #000;
+}
+
+.auth-tab {
+    display: none;
+}
+
+.auth-tab.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.error-msg {
+    color: var(--danger);
+    font-size: 0.9rem;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.guest-info {
+    text-align: center;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+}
+
+.lobby-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.player-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 30px;
+    backdrop-filter: blur(10px);
+}
+
+.player-avatar {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.player-card h3 {
+    font-size: 1.5rem;
+    color: var(--primary);
+    margin-bottom: 15px;
+}
+
+.player-stats {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat .label {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+.stat .value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.menu-section {
+    margin-bottom: 25px;
+}
+
+.menu-section h4 {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+}
+
+.menu-section .btn {
+    margin-bottom: 10px;
+}
+
+.shop-content, .vault-content, .create-room-content, .join-room-content, .rules-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.coins-display {
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid var(--primary);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+}
+
+.shop-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.shop-item:hover {
+    transform: translateY(-4px);
+    border-color: var(--primary);
+    background: rgba(251, 191, 36, 0.08);
+}
+
+.shop-item .icon {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.shop-item h4 {
+    font-size: 0.95rem;
+    margin-bottom: 5px;
+}
+
+.shop-item p {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin-bottom: 10px;
+}
+
+.shop-item .price {
+    color: var(--primary);
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.shop-item .btn {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+
+.rule-section {
+    background: rgba(30, 41, 59, 0.7);
+    border-left: 4px solid var(--primary);
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.rule-section h3 {
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+.rule-section p {
+    color: var(--text-dim);
+    line-height: 1.6;
+}
+
+.info-box {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--success);
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+    color: var(--success);
+}
+
+.info-box p {
+    margin: 8px 0;
+}
+
+.waiting-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.room-info {
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid var(--primary);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.room-code {
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+.room-code strong {
+    color: var(--primary);
+    font-size: 1.3rem;
+    font-family: monospace;
+}
+
+.room-status {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+}
+
+.badge {
+    display: inline-block;
+    background: var(--primary);
+    color: #000;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-left: 10px;
+    font-weight: 700;
+}
+
+.players-waiting {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    flex: 1;
+    backdrop-filter: blur(10px);
+}
+
+.players-waiting h4 {
+    margin-bottom: 15px;
+    color: var(--primary);
+}
+
+.players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.player-item {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.player-item.active {
+    background: rgba(251, 191, 36, 0.15);
+}
+
+.player-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.player-avatar-small {
+    font-size: 1.5rem;
+}
+
+.player-status {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+#start-game-section {
+    margin-top: auto;
+}
+
+#start-game-section.hidden {
+    display: none;
+}
+
+.game-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.game-info {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border);
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    width: 100%;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.game-info p {
+    margin: 5px 0;
+    font-size: 0.95rem;
+}
+
+.board-section {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.ludo-board-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    aspect-ratio: 1 / 1;
+    background: var(--dark-bg-2);
+    border: 6px solid var(--dark-bg-3);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8), 0 15px 40px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+
+.ludo-board {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
+    grid-template-rows: repeat(15, 1fr);
+    gap: 2px;
+    background: #000;
+}
+
+.ludo-cell {
+    background: var(--dark-bg-3);
+    border-radius: 2px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.ludo-cell.path {
+    background: #e2e8f0;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.ludo-cell.safe {
+    background: #fef08a;
+    border: 2px solid #cbd5e1;
+}
+
+.ludo-cell.home {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(251, 191, 36, 0.1));
+    border: 2px solid var(--primary);
+}
+
+.ludo-cell.base-red {
+    background: rgba(220, 38, 38, 0.15);
+    border: 1px dashed rgba(220, 38, 38, 0.4);
+}
+
+.ludo-cell.base-green {
+    background: rgba(5, 150, 105, 0.15);
+    border: 1px dashed rgba(5, 150, 105, 0.4);
+}
+
+.ludo-cell.base-blue {
+    background: rgba(29, 78, 216, 0.15);
+    border: 1px dashed rgba(29, 78, 216, 0.4);
+}
+
+.ludo-cell.base-yellow {
+    background: rgba(202, 138, 4, 0.15);
+    border: 1px dashed rgba(202, 138, 4, 0.4);
+}
+
+.center-home {
+    grid-column: 8 / 9;
+    grid-row: 8 / 9;
+    background: linear-gradient(135deg, var(--primary), #f59e0b);
+    border: 3px solid var(--primary) !important;
+    font-size: 2rem;
+    z-index: 50;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3), 0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+.token {
+    position: absolute;
+    width: 75%;
+    height: 75%;
+    border-radius: 50%;
+    border: 2px solid white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: pointer;
+}
+
+.token.stunned {
+    filter: grayscale(1) opacity(0.4);
+    border: 2px dashed var(--danger);
+    animation: shake 0.4s infinite;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+}
+
+.game-controls {
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    gap: 30px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+}
+
+.players-panel {
+    flex: 1;
+    min-width: 200px;
+}
+
+.players-panel h4 {
+    color: var(--primary);
+    margin-bottom: 15px;
+}
+
+.dice-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.dice-wrapper {
+    perspective: 1000px;
+}
+
+.scene {
+    width: 100px;
+    height: 100px;
+    perspective: 1000px;
+}
+
+.cube {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.cube.rolling {
+    animation: rollDice 1s ease-out;
+}
+
+@keyframes rollDice {
+    0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+    100% { transform: rotateX(720deg) rotateY(720deg) rotateZ(360deg); }
+}
+
+.cube__face {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, var(--primary), #f59e0b);
+    border: 2px solid #f59e0b;
+    border-radius: 8px;
+    color: #000;
+    font-size: 2rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 -2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.cube__face--front  { transform: rotateY(0deg) translateZ(50px); }
+.cube__face--back   { transform: rotateY(180deg) translateZ(50px); }
+.cube__face--right  { transform: rotateY(90deg) translateZ(50px); }
+.cube__face--left   { transform: rotateY(-90deg) translateZ(50px); }
+.cube__face--top    { transform: rotateX(90deg) translateZ(50px); }
+.cube__face--bottom { transform: rotateX(-90deg) translateZ(50px); }
+
+#roll-btn {
+    min-width: 140px;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.duel-modal {
+    background: rgba(30, 41, 59, 0.95);
+    border: 3px solid var(--danger);
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+}
+
+.duel-modal h2 {
+    color: var(--danger);
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+}
+
+.duel-content {
+    margin: 20px 0;
+}
+
+#duel-question {
+    color: var(--text-light);
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    line-height: 1.6;
+}
+
+.duel-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.duel-option {
+    padding: 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-light);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.duel-option:hover:not(:disabled) {
+    background: rgba(251, 191, 36, 0.15);
+    border-color: var(--primary);
+}
+
+.duel-option.selected {
+    background: var(--primary) !important;
+    color: #000 !important;
+    border-color: var(--primary) !important;
+}
+
+.duel-option:disabled {
+    opacity: 0.6;
+}
+
+.duel-timer-display {
+    font-size: 2rem;
+    color: var(--primary);
+    font-weight: 800;
+}
+
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--primary);
+    color: #000;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    animation: toastSlide 0.3s ease forwards;
+    pointer-events: auto;
+}
+
+@keyframes toastSlide {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+@media (max-width: 768px) {
+    .game-controls {
+        flex-direction: column;
+        gap: 20px;
+    }
+    .ludo-board-container {
+        max-width: 90vw;
+    }
+    .duel-modal {
+        padding: 30px 20px;
+    }
+    .auth-container {
+        padding: 30px 20px;
+    }
+    .shop-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+}
+
+.hidden {
+    display: none !important;
+}
