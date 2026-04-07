@@ -1,18 +1,14 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
 const mysql = require('mysql2');
 const path = require('path');
-require('dotenv').config();
-
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+require('dotenv').config();
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== DATABASE CONNECTION ====================
-
+// Database Connection
 const db = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
@@ -39,269 +35,309 @@ const RIDDLES = [
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
-
-function getRandom(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-}
-
-// ==================== DATABASE FUNCTIONS ====================
-
-function registerUser(username, password, callback) {
-    db.query('SELECT id FROM users WHERE username = ?', [username], (err, results) => {
-        if (err) return callback(err, null);
-        if (results && results.length > 0) return callback(new Error('Username exists'), null);
-        
-        const inventory = JSON.stringify(['avatar_peasant', 'ability_none']);
-        db.query(
-            'INSERT INTO users (username, password, coins, xp, inventory, selectedAvatar, selectedAbility) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [username, password, 600, 0, inventory, 'avatar_peasant', 'ability_none'],
-            (err) => {
-                if (err) return callback(err, null);
-                callback(null, {
-                    username,
-                    coins: 600,
-                    xp: 0,
-                    inventory: ['avatar_peasant', 'ability_none'],
-                    selectedAvatar: 'avatar_peasant',
-                    selectedAbility: 'ability_none'
-                });
-            }
-        );
-    });
-}
-
-function loginUser(username, password, callback) {
-    db.query(
-        'SELECT * FROM users WHERE username = ? AND password = ?',
-        [username, password],
-        (err, results) => {
-            if (err) return callback(err, null);
-            if (!results || results.length === 0) return callback(new Error('Invalid credentials'), null);
-            
-            const user = results[0];
-            callback(null, {
-                username: user.username,
-                coins: user.coins,
-                xp: user.xp,
-                inventory: typeof user.inventory === 'string' ? JSON.parse(user.inventory) : user.inventory,
-                selectedAvatar: user.selectedAvatar || 'avatar_peasant',
-                selectedAbility: user.selectedAbility || 'ability_none'
-            });
-        }
-    );
-}
-
-function saveUserData(username, data) {
-    db.query(
-        'UPDATE users SET coins=?, xp=?, inventory=?, selectedAvatar=?, selectedAbility=? WHERE username=?',
-        [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, username],
-        (err) => {
-            if (err) console.error('Save error:', err);
-        }
-    );
-}
-
-// ==================== SOCKET CONNECTIONS ====================
-
-io.on('connection', (socket) => {
-    console.log(`🔗 User connected: ${socket.id}`);
-
-    // ===== AUTHENTICATION =====
-
+    // ==================== AUTHENTICATION ====================
     socket.on('auth_register', (data) => {
-        const { username, password } = data;
+        const { user, pass } = data;
         
-        if (!username || !password || username.length < 3) {
-            return socket.emit('auth_error', 'Invalid input');
-        }
-
-        registerUser(username, password, (err, userData) => {
-            if (err) return socket.emit('auth_error', err.message);
-            socket.username = username;
-            socket.emit('auth_success', userData);
+        db.query('SELECT * FROM users WHERE username = ?', [user], (err, results) => {
+            if (err) {
+                socket.emit('auth_error', 'Database error');
+                return;
+            }
+            
+            if (results && results.length > 0) {
+                socket.emit('auth_error', 'Username already exists');
+                return;
+            }
+            
+            db.query(
+                'INSERT INTO users (username, password, coins, xp, inventory, selectedAvatar, selectedAbility) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [user, pass, 600, 0, JSON.stringify(['avatar_default', 'ability_none']), 'avatar_default', 'ability_none'],
+                (err2) => {
+                    if (err2) {
+                        socket.emit('auth_error', 'Registration failed');
+                        return;
+                    }
+                    
+                    socket.username = user;
+                    socket.emit('auth_success', {
+                        username: user,
+                        coins: 600,
+                        xp: 0,
+                        inventory: ['avatar_default', 'ability_none'],
+                        selectedAvatar: 'avatar_default',
+                        selectedAbility: 'ability_none'
+                    });
+                }
+            );
         });
     });
 
     socket.on('auth_login', (data) => {
-        const { username, password } = data;
+        const { user, pass } = data;
         
-        if (!username || !password) {
-            return socket.emit('auth_error', 'Fill in all fields');
-        }
-
-        loginUser(username, password, (err, userData) => {
-            if (err) return socket.emit('auth_error', err.message);
-            socket.username = username;
-            socket.emit('auth_success', userData);
+        db.query('SELECT * FROM users WHERE username = ? AND password = ?', [user, pass], (err, results) => {
+            if (err) {
+                socket.emit('auth_error', 'Database error');
+                return;
+            }
+            
+            if (results && results.length > 0) {
+                const u = results[0];
+                socket.username = u.username;
+                
+                const inventory = typeof u.inventory === 'string' ? JSON.parse(u.inventory) : u.inventory;
+                
+                socket.emit('auth_success', {
+                    username: u.username,
+                    coins: u.coins || 600,
+                    xp: u.xp || 0,
+                    inventory: inventory || ['avatar_default', 'ability_none'],
+                    selectedAvatar: u.selectedAvatar || 'avatar_default',
+                    selectedAbility: u.selectedAbility || 'ability_none'
+                });
+            } else {
+                socket.emit('auth_error', 'Invalid username or password');
+            }
         });
     });
 
     socket.on('save_data', (data) => {
         if (socket.username) {
-            saveUserData(socket.username, data);
+            db.query(
+                'UPDATE users SET coins=?, xp=?, inventory=?, selectedAvatar=?, selectedAbility=? WHERE username=?',
+                [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, socket.username],
+                (err) => {
+                    if (err) console.error('Save data error:', err);
+                }
+            );
         }
     });
-
-    // ===== ROOM MANAGEMENT =====
-
+    // ==================== ROOM MANAGEMENT ====================
     socket.on('createRoom', (data) => {
         const roomId = generateRoomCode();
-        const player = {
-            id: socket.id,
-            name: data.playerData.name || data.playerData.username,
-            username: data.playerData.username,
-            position: -1,
-            stunned: false,
-            selectedAvatar: data.playerData.selectedAvatar,
-            selectedAbility: data.playerData.selectedAbility
-        };
-
+        
         rooms[roomId] = {
             id: roomId,
-            players: [player],
+            name: data.name || 'Game Room',
+            host: socket.id,
+            players: [
+                {
+                    id: socket.id,
+                    name: socket.username || `Guest_${Math.floor(Math.random() * 9999)}`,
+                    position: -1,
+                    stunned: false,
+                    selectedAvatar: 'avatar_default',
+                    selectedAbility: 'ability_none'
+                }
+            ],
             state: 'LOBBY',
-            activePlayerIndex: 0,
+            currentTurnIndex: 0,
             duel: null
         };
-
+        
         socket.join(roomId);
         socketToRoom[socket.id] = roomId;
-
-        socket.emit('roomJoined', {
-            roomId,
-            isHost: true,
-            gameState: rooms[roomId]
-        });
-
-        io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-        console.log(`🏠 Room ${roomId} created by ${player.name}`);
+        
+        socket.emit('roomCreated', { roomId });
+        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+        
+        console.log(`Room ${roomId} created by ${socket.username}`);
     });
 
-    socket.on('joinRoom', (data) => {
-        const roomId = data.roomCode;
-
+    socket.on('joinRoom', (roomCode) => {
+        const roomId = roomCode.toUpperCase();
+        
         if (!rooms[roomId]) {
-            return socket.emit('auth_error', 'Room not found');
-        }
-
-        if (rooms[roomId].state !== 'LOBBY') {
-            return socket.emit('auth_error', 'Game already started');
-        }
-
-        if (rooms[roomId].players.length >= 4) {
-            return socket.emit('auth_error', 'Room is full');
-        }
-
-        const player = {
-            id: socket.id,
-            name: data.playerData.name || data.playerData.username,
-            username: data.playerData.username,
-            position: -1,
-            stunned: false,
-            selectedAvatar: data.playerData.selectedAvatar,
-            selectedAbility: data.playerData.selectedAbility
-        };
-
-        rooms[roomId].players.push(player);
-        socket.join(roomId);
-        socketToRoom[socket.id] = roomId;
-
-        socket.emit('roomJoined', {
-            roomId,
-            isHost: false,
-            gameState: rooms[roomId]
-        });
-
-        io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-        console.log(`👤 ${player.name} joined room ${roomId}`);
-    });
-
-    socket.on('startGame', (roomId) => {
-        if (!rooms[roomId] || rooms[roomId].players[0].id !== socket.id) {
-            return socket.emit('auth_error', 'Only host can start game');
-        }
-
-        rooms[roomId].state = 'PLAYING';
-        rooms[roomId].activePlayerIndex = 0;
-        io.to(roomId).emit('gameStarted');
-        io.to(roomId).emit('turnUpdate', {
-            activePlayerIndex: 0
-        });
-        console.log(`🎮 Game started in room ${roomId}`);
-    });
-
-    // ===== GAME LOGIC =====
-
-    socket.on('rollDice', (roomId) => {
-        const room = rooms[roomId];
-        if (!room || room.state !== 'PLAYING') return;
-
-        const activePlayer = room.players[room.activePlayerIndex];
-        if (activePlayer.id !== socket.id) return;
-
-        const roll = Math.floor(Math.random() * 6) + 1;
-
-        if (activePlayer.stunned) {
-            activePlayer.stunned = false;
-            io.to(roomId).emit('diceRolled', { roll, players: room.players });
-
-            setTimeout(() => {
-                room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
-                io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
-            }, 2000);
+            socket.emit('auth_error', 'Room not found');
             return;
         }
-
-        if (activePlayer.position === -1) {
-            activePlayer.position = roll - 1;
-        } else {
-            activePlayer.position += roll;
-            if (activePlayer.position > 56) activePlayer.position = 56;
+        
+        if (rooms[roomId].state !== 'LOBBY') {
+            socket.emit('auth_error', 'Game already started');
+            return;
         }
-
-        io.to(roomId).emit('diceRolled', { roll, players: room.players });
-
-        setTimeout(() => {
-            const collision = room.players.find(p =>
-                p.id !== activePlayer.id &&
-                p.position === activePlayer.position &&
-                p.position !== -1 &&
-                p.position !== 56
-            );
-
-            if (collision) {
-                room.state = 'DUEL';
-                const riddle = getRandom(RIDDLES);
-                room.duel = {
-                    attacker: activePlayer,
-                    defender: collision,
-                    riddle,
-                    answers: {}
-                };
-
-                io.to(roomId).emit('startDuel', {
-                    riddle: { q: riddle.q, options: riddle.options },
-                    p1: activePlayer.id,
-                    p2: collision.id
-                });
-
-                setTimeout(() => resolveDuel(roomId, 'timeout'), 16000);
-            } else if (activePlayer.position === 56) {
-                io.to(roomId).emit('gameEnded', { winner: activePlayer.name });
-                room.state = 'LOBBY';
-            } else {
-                room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
-                io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
-            }
-        }, 1500);
+        
+        if (rooms[roomId].players.length >= 4) {
+            socket.emit('auth_error', 'Room is full');
+            return;
+        }
+        
+        rooms[roomId].players.push({
+            id: socket.id,
+            name: socket.username || `Guest_${Math.floor(Math.random() * 9999)}`,
+            position: -1,
+            stunned: false,
+            selectedAvatar: 'avatar_default',
+            selectedAbility: 'ability_none'
+        });
+        
+        socket.join(roomId);
+        socketToRoom[socket.id] = roomId;
+        
+        socket.emit('roomJoined', {
+            roomId,
+            isHost: false
+        });
+        
+        io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+        
+        console.log(`Player ${socket.username} joined room ${roomId}`);
     });
+
+    socket.on('leaveRoom', (roomId) => {
+        if (rooms[roomId]) {
+            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
+            
+            if (rooms[roomId].players.length === 0) {
+                delete rooms[roomId];
+                console.log(`Room ${roomId} deleted (empty)`);
+            } else {
+                io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+            }
+        }
+        
+        socket.leave(roomId);
+        delete socketToRoom[socket.id];
+    });
+    // ==================== GAME LOGIC ====================
+    socket.on('startGame', (roomId) => {
+        if (!rooms[roomId] || rooms[roomId].host !== socket.id) {
+            socket.emit('auth_error', 'Only host can start game');
+            return;
+        }
+        
+        rooms[roomId].state = 'PLAYING';
+        rooms[roomId].currentTurnIndex = 0;
+        
+        io.to(roomId).emit('gameStarted');
+        
+        setTimeout(() => {
+            updateTurn(roomId);
+        }, 1000);
+        
+        console.log(`Game started in room ${roomId}`);
+    });
+
+    socket.on('rollDice', (roomId) => {
+        if (!rooms[roomId] || rooms[roomId].state !== 'PLAYING') {
+            return;
+        }
+        
+        const room = rooms[roomId];
+        const currentPlayer = room.players[room.currentTurnIndex];
+        
+        if (currentPlayer.id !== socket.id) {
+            socket.emit('auth_error', 'Not your turn');
+            return;
+        }
+        
+        const roll = Math.floor(Math.random() * 6) + 1;
+        
+        // Handle stunned player
+        if (currentPlayer.stunned) {
+            currentPlayer.stunned = false;
+            currentPlayer.position = -1;
+            
+            io.to(roomId).emit('diceRolled', { 
+                roll, 
+                players: room.players 
+            });
+            
+            setTimeout(() => {
+                room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
+                updateTurn(roomId);
+            }, 2000);
+            
+            return;
+        }
+        
+        // Move player
+        if (currentPlayer.position === -1) {
+            currentPlayer.position = 0;
+        } else {
+            currentPlayer.position += roll;
+            
+            if (currentPlayer.position >= 56) {
+                currentPlayer.position = 56;
+                io.to(roomId).emit('gameEnded', { 
+                    msg: `${currentPlayer.name} won the game!` 
+                });
+                rooms[roomId].state = 'LOBBY';
+                delete rooms[roomId];
+                return;
+            }
+        }
+        
+        io.to(roomId).emit('diceRolled', { 
+            roll, 
+            players: room.players 
+        });
+        
+        // Check for collision (duel)
+        const otherPlayer = room.players.find(p => p.id !== socket.id && p.position === currentPlayer.position && p.position !== -1);
+        
+        if (otherPlayer) {
+            setTimeout(() => {
+                startDuel(roomId, currentPlayer, otherPlayer);
+            }, 1500);
+        } else {
+            setTimeout(() => {
+                room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
+                updateTurn(roomId);
+            }, 1500);
+        }
+    });
+
+    function updateTurn(roomId) {
+        if (!rooms[roomId]) return;
+        
+        const room = rooms[roomId];
+        const activePlayer = room.players[room.currentTurnIndex];
+        
+        io.to(roomId).emit('turnUpdate', {
+            activePlayerId: activePlayer.id,
+            activePlayerName: activePlayer.name
+        });
+    }
+    // ==================== DUEL SYSTEM ====================
+    function startDuel(roomId, attacker, defender) {
+        if (!rooms[roomId]) return;
+        
+        const riddle = RIDDLES[Math.floor(Math.random() * RIDDLES.length)];
+        const room = rooms[roomId];
+        
+        room.state = 'DUEL';
+        room.duel = {
+            attacker: attacker,
+            defender: defender,
+            riddle: riddle,
+            answers: {}
+        };
+        
+        io.to(roomId).emit('startDuel', {
+            riddle: {
+                q: riddle.q,
+                options: riddle.options
+            },
+            p1: attacker.id,
+            p2: defender.id
+        });
+        
+        setTimeout(() => {
+            resolveDuel(roomId, 'timeout');
+        }, 16000);
+    }
 
     socket.on('submitDuelAnswer', (data) => {
         const room = rooms[data.roomId];
-        if (!room || room.state !== 'DUEL') return;
-
+        
+        if (!room || room.state !== 'DUEL') {
+            return;
+        }
+        
         room.duel.answers[socket.id] = data.answer;
-
+        
         if (Object.keys(room.duel.answers).length === 2) {
             resolveDuel(data.roomId, 'answered');
         }
@@ -309,82 +345,79 @@ io.on('connection', (socket) => {
 
     function resolveDuel(roomId, reason) {
         const room = rooms[roomId];
+        
         if (!room || !room.duel) return;
-
+        
         const { attacker, defender, riddle, answers } = room.duel;
         const attAns = answers[attacker.id];
         const defAns = answers[defender.id];
-
-        let winner = attacker, loser = defender;
-
-        if (defAns === riddle.answer && attAns !== riddle.answer) {
+        
+        let winner = attacker;
+        let loser = defender;
+        let msg = '';
+        
+        if (attAns === riddle.answer && defAns !== riddle.answer) {
+            winner = attacker;
+            loser = defender;
+            msg = `⚔️ ${attacker.name} won the duel! ${defender.name} was sent back to base!`;
+        } else if (defAns === riddle.answer && attAns !== riddle.answer) {
             winner = defender;
             loser = attacker;
+            msg = `⚔️ ${defender.name} won the duel! ${attacker.name} was sent back to base!`;
+        } else if (attAns === riddle.answer && defAns === riddle.answer) {
+            winner = attacker;
+            loser = defender;
+            msg = `⚔️ Both answered correctly! ${attacker.name} wins (attacked first)!`;
+        } else {
+            winner = defender;
+            loser = attacker;
+            msg = `⚔️ Both answered wrong! ${defender.name} wins by default!`;
         }
-
+        
         loser.stunned = true;
         loser.position = -1;
-
+        
         io.to(roomId).emit('duelEnded', {
-            message: `⚔️ ${winner.name} won! ${loser.name} was sent to Base!`,
+            msg,
             players: room.players
         });
-
+        
         room.state = 'PLAYING';
         room.duel = null;
-        room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
-
+        
         setTimeout(() => {
-            io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
-        }, 2000);
+            if (rooms[roomId]) {
+                room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
+                updateTurn(roomId);
+            }
+        }, 3000);
     }
 
-    socket.on('leaveRoom', (roomId) => {
-        if (rooms[roomId]) {
+    // ==================== DISCONNECT ====================
+    socket.on('disconnect', () => {
+        const roomId = socketToRoom[socket.id];
+        
+        if (roomId && rooms[roomId]) {
             rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-
+            
             if (rooms[roomId].players.length === 0) {
                 delete rooms[roomId];
-                console.log(`🗑️  Room ${roomId} deleted (empty)`);
+            } else {
+                io.to(roomId).emit('updatePlayers', rooms[roomId].players);
             }
         }
+        
         delete socketToRoom[socket.id];
+        console.log(`Player ${socket.id} disconnected`);
     });
 
     socket.on('leaveGame', (roomId) => {
-        if (rooms[roomId]) {
-            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-
-            if (rooms[roomId].players.length === 0) {
-                delete rooms[roomId];
-            }
-        }
-        delete socketToRoom[socket.id];
-    });
-
-    // ===== DISCONNECT =====
-
-    socket.on('disconnect', () => {
-        console.log(`👋 User disconnected: ${socket.id}`);
-        const roomId = socketToRoom[socket.id];
-
-        if (roomId && rooms[roomId]) {
-            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
-
-            if (rooms[roomId].players.length === 0) {
-                delete rooms[roomId];
-            }
-        }
-
-        delete socketToRoom[socket.id];
+        socket.emit('disconnect');
     });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`\n🎮 Ludo Battlefield running on port ${PORT}`);
-    console.log(`🌐 Open http://localhost:${PORT} in your browser\n`);
+http.listen(PORT, () => {
+    console.log(`🎮 Ludo Battlefield server running on port ${PORT}`);
 });
+io.on('connection', (socket) => {
