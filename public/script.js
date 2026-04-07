@@ -38,10 +38,14 @@ let isHost = false;
 let myId = null;
 let gameState = { players: [], gameStarted: false };
 
+// ==================== PAGE NAVIGATION ====================
 function goToPage(pageName) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const page = document.getElementById(`page-${pageName}`);
     if (page) page.classList.add('active');
+    
+    if (pageName === 'shop') renderShop();
+    if (pageName === 'vault') renderVault();
 }
 
 function goBack() {
@@ -57,6 +61,7 @@ function switchAuthTab(tab) {
     if (event && event.target) event.target.classList.add('active');
 }
 
+// ==================== AUTHENTICATION ====================
 function handleLogin() {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value.trim();
@@ -137,6 +142,7 @@ socket.on('auth_success', (data) => {
     currentUser = { ...currentUser, ...data, isLoggedIn: true };
     goToPage('lobby');
     updateProfileUI();
+    showToast('✅ Welcome back, ' + data.username + '!');
 });
 
 socket.on('auth_error', (msg) => {
@@ -161,6 +167,7 @@ function updateProfileUI() {
     }
 }
 
+// ==================== SHOP & VAULT ====================
 function renderShop() {
     const box = document.getElementById('shop-items');
     if (!box) return;
@@ -173,7 +180,15 @@ function renderShop() {
         const isOwned = currentUser.inventory.includes(item.id);
         const card = document.createElement('div');
         card.className = 'shop-item';
-        card.innerHTML = `<div class="icon">${item.icon}</div><h4>${item.name}</h4><p>${item.desc}</p><div class="price">💰 ${item.price}</div><button class="btn btn-primary" ${isOwned ? 'disabled' : ''} onclick="buyItem('${item.id}', ${item.price})">${isOwned ? 'Owned' : 'Buy'}</button>`;
+        card.innerHTML = `
+            <div class="icon">${item.icon}</div>
+            <h4>${item.name}</h4>
+            <p>${item.desc}</p>
+            <div class="price">💰 ${item.price}</div>
+            <button class="btn ${isOwned ? 'btn-secondary' : 'btn-primary'}" ${isOwned ? 'disabled' : ''} onclick="buyItem('${item.id}', ${item.price})">
+                ${isOwned ? '✓ Owned' : 'Buy'}
+            </button>
+        `;
         box.appendChild(card);
     });
 }
@@ -182,18 +197,33 @@ function renderVault() {
     const box = document.getElementById('vault-items');
     if (!box) return;
     box.innerHTML = '';
-    SHOP_ITEMS.filter(item => currentUser.inventory.includes(item.id)).forEach(item => {
+    
+    const ownedItems = SHOP_ITEMS.filter(item => currentUser.inventory.includes(item.id));
+    
+    if (ownedItems.length === 0) {
+        box.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-dim);">No items yet! Visit the Armory.</p>';
+        return;
+    }
+    
+    ownedItems.forEach(item => {
         const isEquipped = currentUser.selectedAvatar === item.id || currentUser.selectedAbility === item.id;
         const card = document.createElement('div');
         card.className = 'shop-item';
-        card.innerHTML = `<div class="icon">${item.icon}</div><h4>${item.name}</h4><p>${item.desc}</p><button class="btn btn-primary" onclick="equipItem('${item.id}', '${item.type}')">${isEquipped ? 'Equipped' : 'Equip'}</button>`;
+        card.innerHTML = `
+            <div class="icon">${item.icon}</div>
+            <h4>${item.name}</h4>
+            <p>${item.desc}</p>
+            <button class="btn ${isEquipped ? 'btn-primary' : 'btn-secondary'}" onclick="equipItem('${item.id}', '${item.type}')">
+                ${isEquipped ? '✓ Equipped' : 'Equip'}
+            </button>
+        `;
         box.appendChild(card);
     });
 }
 
 function buyItem(id, price) {
     if (currentUser.coins < price) {
-        showToast('Not enough coins!');
+        showToast('❌ Not enough coins!');
         return;
     }
     currentUser.coins -= price;
@@ -201,7 +231,8 @@ function buyItem(id, price) {
     if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
     updateProfileUI();
     renderShop();
-    showToast('Item purchased!');
+    renderVault();
+    showToast('✅ Item purchased!');
 }
 
 function equipItem(id, type) {
@@ -210,9 +241,10 @@ function equipItem(id, type) {
     if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
     updateProfileUI();
     renderVault();
-    showToast('Item equipped!');
+    showToast('✅ Item equipped!');
 }
 
+// ==================== ROOM MANAGEMENT ====================
 function handleCreateRoom() {
     const roomName = document.getElementById('room-name').value.trim();
     console.log('Creating room');
@@ -253,7 +285,7 @@ socket.on('roomCreated', (data) => {
     document.getElementById('game-room-code').innerText = currentRoomId;
     document.getElementById('host-badge').innerText = '(Host)';
     document.getElementById('start-game-section').classList.remove('hidden');
-    showToast('Room created! Code: ' + currentRoomId);
+    showToast('✅ Room created! Code: ' + currentRoomId);
     goToPage('waiting');
 });
 
@@ -268,7 +300,7 @@ socket.on('roomJoined', (data) => {
         document.getElementById('start-game-section').classList.add('hidden');
         document.getElementById('host-badge').innerText = '';
     }
-    showToast('Joined room: ' + currentRoomId);
+    showToast('✅ Joined room: ' + currentRoomId);
     goToPage('waiting');
 });
 
@@ -277,7 +309,14 @@ socket.on('updatePlayers', (players) => {
     gameState.players = players;
     const list = document.getElementById('waiting-players-list');
     if (list) {
-        list.innerHTML = players.map(p => `<div class="player-item ${p.id === myId ? 'active' : ''}"><div class="player-name"><span class="player-avatar-small">${SHOP_ITEMS.find(sh => sh.id === p.selectedAvatar)?.icon || '👤'}</span><span>${p.name}${p.id === myId ? ' (You)' : ''}</span></div></div>`).join('');
+        list.innerHTML = players.map(p => `
+            <div class="player-item ${p.id === myId ? 'active' : ''}">
+                <div class="player-name">
+                    <span class="player-avatar-small">${SHOP_ITEMS.find(sh => sh.id === p.selectedAvatar)?.icon || '👤'}</span>
+                    <span>${p.name}${p.id === myId ? ' (You)' : ''}</span>
+                </div>
+            </div>
+        `).join('');
     }
     const count = document.getElementById('player-count');
     if (count) count.innerText = players.length;
@@ -295,9 +334,10 @@ socket.on('gameStarted', () => {
     buildLudoBoard();
     goToPage('game');
     document.getElementById('roll-btn').disabled = false;
-    showToast('Game Started!');
+    showToast('🎮 Game Started!');
 });
 
+// ==================== BOARD & GAME ====================
 function buildLudoBoard() {
     const board = document.getElementById('ludo-board');
     if (!board) return;
@@ -313,7 +353,7 @@ function buildLudoBoard() {
             else if (r > 8 && c > 8) cell.classList.add('base', 'base-yellow');
             if (r >= 7 && r < 10 && c >= 7 && c < 10) {
                 cell.classList.add('home-section');
-                cell.innerHTML = '●';
+                cell.innerHTML = '🏁';
             }
             const isOnPath = LUDO_PATH.some(p => p.r === r && p.c === c);
             if (isOnPath) cell.classList.add('path');
@@ -344,111 +384,4 @@ function updateBoardTokens(players) {
 }
 
 function rollDice() {
-    document.getElementById('roll-btn').disabled = true;
-    console.log('Rolling dice');
-    socket.emit('rollDice', currentRoomId);
-}
-
-function animateDice(result) {
-    const cube = document.getElementById('dice-cube');
-    if (!cube) return;
-    cube.classList.add('rolling');
-    setTimeout(() => {
-        cube.classList.remove('rolling');
-        let rotX = 0, rotY = 0;
-        switch(result) {
-            case 1: rotX = 0; rotY = 0; break;
-            case 6: rotX = 0; rotY = 180; break;
-            case 3: rotX = 0; rotY = -90; break;
-            case 4: rotX = 0; rotY = 90; break;
-            case 5: rotX = -90; rotY = 0; break;
-            case 2: rotX = 90; rotY = 0; break;
-        }
-        cube.style.transform = `translateZ(-50px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
-    }, 1000);
-}
-
-socket.on('diceRolled', (data) => {
-    console.log('Dice rolled:', data.roll);
-    animateDice(data.roll);
-    updateBoardTokens(data.players);
-    gameState.players = data.players;
-});
-
-socket.on('turnUpdate', (data) => {
-    console.log('Turn update:', data);
-    const isMyTurn = data.activePlayerId === myId;
-    const info = document.getElementById('turn-info');
-    if (info) info.innerText = isMyTurn ? '⚡ Your Turn!' : `${data.activePlayerName}'s Turn`;
-    const btn = document.getElementById('roll-btn');
-    if (btn) btn.disabled = !isMyTurn;
-});
-
-socket.on('startDuel', (data) => {
-    console.log('Duel started');
-    const question = document.getElementById('duel-question');
-    if (question) question.innerText = data.riddle.q;
-    const optsBox = document.getElementById('duel-options');
-    if (optsBox) {
-        optsBox.innerHTML = '';
-        data.riddle.options.forEach(opt => {
-            const btn = document.createElement('button');
-            btn.className = 'duel-option';
-            btn.innerText = opt;
-            btn.onclick = () => {
-                btn.classList.add('selected');
-                document.querySelectorAll('.duel-option').forEach(b => b.disabled = true);
-                socket.emit('submitDuelAnswer', { roomId: currentRoomId, answer: opt });
-            };
-            optsBox.appendChild(btn);
-        });
-    }
-    const overlay = document.getElementById('duel-overlay');
-    if (overlay) overlay.classList.remove('hidden');
-    let timeLeft = 15;
-    const timer = document.getElementById('duel-timer');
-    if (timer) timer.innerText = timeLeft;
-    const interval = setInterval(() => {
-        timeLeft--;
-        if (timer) timer.innerText = timeLeft;
-        if (timeLeft <= 0) clearInterval(interval);
-    }, 1000);
-});
-
-socket.on('duelEnded', (data) => {
-    console.log('Duel ended:', data.msg);
-    const overlay = document.getElementById('duel-overlay');
-    if (overlay) overlay.classList.add('hidden');
-    showToast(data.msg);
-    updateBoardTokens(data.players);
-    gameState.players = data.players;
-});
-
-socket.on('gameEnded', (data) => {
-    console.log('Game ended:', data.msg);
-    showToast('🏆 ' + data.msg);
-    setTimeout(() => handleLeaveGame(), 3000);
-});
-
-function showToast(msg) {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerText = msg;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-}
-
-socket.on('connect', () => {
-    console.log('✅ Connected to server');
-});
-
-socket.on('disconnect', () => {
-    console.log('❌ Disconnected from server');
-});
-
-socket.on('error', (error) => {
-    console.error('Socket error:', error);
-    showToast('Error: ' + error);
-});
+    document.getElementById
