@@ -1,5 +1,3 @@
-// public/game.js
-
 export function buildBoard() {
     const board = document.getElementById('ludo-board');
     board.innerHTML = '';
@@ -12,7 +10,7 @@ export function buildBoard() {
             cell.classList.add('path');
         }
 
-        if ([112].includes(i)) {
+        if (i === 112) {
             cell.classList.add('center');
             cell.innerHTML = "🏁";
         }
