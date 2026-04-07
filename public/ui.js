@@ -1,6 +1,7 @@
-// public/ui.js
-
 export function updatePlayers(players) {
-    document.getElementById('players').innerHTML =
-        players.map(p => `<div>${p.name} (${p.pos})</div>`).join('');
+    const box = document.getElementById('players');
+
+    box.innerHTML = players.map(p =>
+        `<div>${p.name} → Position: ${p.pos}</div>`
+    ).join('');
 }
