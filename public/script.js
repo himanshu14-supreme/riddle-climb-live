@@ -22,9 +22,17 @@ const LUDO_PATH = [
     {r:9,c:2},{r:9,c:3},{r:9,c:4},{r:9,c:5},{r:9,c:6},{r:9,c:7},{r:9,c:8}
 ];
 
-const SAFE_ZONES = [6, 13, 20, 27, 34, 41, 48];
+let currentUser = { 
+    isLoggedIn: false, 
+    name: "Guest", 
+    username: "",
+    coins: 600, 
+    xp: 0, 
+    inventory: ['avatar_default', 'ability_none'], 
+    selectedAvatar: 'avatar_default', 
+    selectedAbility: 'ability_none' 
+};
 
-let currentUser = { isLoggedIn: false, name: "Guest", coins: 600, xp: 0, inventory: ['avatar_default', 'ability_none'], selectedAvatar: 'avatar_default', selectedAbility: 'ability_none' };
 let currentRoomId = null;
 let isHost = false;
 let myId = null;
@@ -52,10 +60,15 @@ function switchAuthTab(tab) {
 function handleLogin() {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value.trim();
+    const msgEl = document.getElementById('login-message');
+    
     if (!username || !password) {
-        document.getElementById('login-message').innerText = 'Fill all fields';
+        if (msgEl) msgEl.innerText = 'Please fill in all fields';
         return;
     }
+    
+    console.log('Logging in:', username);
+    if (msgEl) msgEl.innerText = 'Logging in...';
     socket.emit('auth_login', { user: username, pass: password });
 }
 
@@ -63,39 +76,72 @@ function handleRegister() {
     const username = document.getElementById('register-username').value.trim();
     const password = document.getElementById('register-password').value.trim();
     const confirm = document.getElementById('register-confirm').value.trim();
+    const msgEl = document.getElementById('register-message');
+    
     if (!username || !password || !confirm) {
-        document.getElementById('register-message').innerText = 'Fill all fields';
+        if (msgEl) msgEl.innerText = 'Please fill in all fields';
         return;
     }
+    
     if (password !== confirm) {
-        document.getElementById('register-message').innerText = 'Passwords do not match';
+        if (msgEl) msgEl.innerText = 'Passwords do not match';
         return;
     }
+    
+    if (password.length < 4) {
+        if (msgEl) msgEl.innerText = 'Password must be at least 4 characters';
+        return;
+    }
+    
+    console.log('Registering:', username);
+    if (msgEl) msgEl.innerText = 'Registering...';
     socket.emit('auth_register', { user: username, pass: password });
 }
 
 function handleGuest() {
     const name = document.getElementById('guest-name').value.trim() || `Guest_${Math.floor(Math.random()*9999)}`;
+    const msgEl = document.getElementById('guest-message');
+    
+    if (!name) {
+        if (msgEl) msgEl.innerText = 'Please enter a nickname';
+        return;
+    }
+    
     currentUser.name = name;
+    currentUser.isLoggedIn = false;
+    currentUser.username = "";
+    console.log('Logged in as guest:', name);
     goToPage('lobby');
     updateProfileUI();
 }
 
 function handleLogout() {
-    currentUser = { isLoggedIn: false, name: "Guest", coins: 600, xp: 0, inventory: ['avatar_default', 'ability_none'], selectedAvatar: 'avatar_default', selectedAbility: 'ability_none' };
-    goToPage('auth');
+    currentUser = { 
+        isLoggedIn: false, 
+        name: "Guest", 
+        username: "",
+        coins: 600, 
+        xp: 0, 
+        inventory: ['avatar_default', 'ability_none'], 
+        selectedAvatar: 'avatar_default', 
+        selectedAbility: 'ability_none' 
+    };
     document.getElementById('login-username').value = '';
     document.getElementById('login-password').value = '';
+    document.getElementById('login-message').innerText = '';
+    goToPage('auth');
 }
 
 socket.on('auth_success', (data) => {
+    console.log('Auth success:', data);
     currentUser = { ...currentUser, ...data, isLoggedIn: true };
     goToPage('lobby');
     updateProfileUI();
 });
 
 socket.on('auth_error', (msg) => {
-    showToast(msg);
+    console.log('Auth error:', msg);
+    showToast('❌ ' + msg);
     document.getElementById('login-message').innerText = msg;
     document.getElementById('register-message').innerText = msg;
 });
@@ -169,15 +215,20 @@ function equipItem(id, type) {
 
 function handleCreateRoom() {
     const roomName = document.getElementById('room-name').value.trim();
+    console.log('Creating room');
     socket.emit('createRoom', { name: roomName });
 }
 
 function handleJoinRoom() {
     const code = document.getElementById('join-code').value.trim().toUpperCase();
+    const msgEl = document.getElementById('join-message');
+    
     if (!code) {
-        document.getElementById('join-message').innerText = 'Enter room code';
+        if (msgEl) msgEl.innerText = 'Please enter a room code';
         return;
     }
+    
+    console.log('Joining room:', code);
     socket.emit('joinRoom', code);
 }
 
@@ -194,6 +245,7 @@ function handleLeaveGame() {
 }
 
 socket.on('roomCreated', (data) => {
+    console.log('Room created:', data);
     currentRoomId = data.roomId;
     isHost = true;
     myId = socket.id;
@@ -201,10 +253,12 @@ socket.on('roomCreated', (data) => {
     document.getElementById('game-room-code').innerText = currentRoomId;
     document.getElementById('host-badge').innerText = '(Host)';
     document.getElementById('start-game-section').classList.remove('hidden');
+    showToast('Room created! Code: ' + currentRoomId);
     goToPage('waiting');
 });
 
 socket.on('roomJoined', (data) => {
+    console.log('Room joined:', data);
     currentRoomId = data.roomId;
     isHost = data.isHost;
     myId = socket.id;
@@ -214,10 +268,12 @@ socket.on('roomJoined', (data) => {
         document.getElementById('start-game-section').classList.add('hidden');
         document.getElementById('host-badge').innerText = '';
     }
+    showToast('Joined room: ' + currentRoomId);
     goToPage('waiting');
 });
 
 socket.on('updatePlayers', (players) => {
+    console.log('Players updated:', players);
     gameState.players = players;
     const list = document.getElementById('waiting-players-list');
     if (list) {
@@ -228,10 +284,14 @@ socket.on('updatePlayers', (players) => {
 });
 
 function handleStartGame() {
-    if (isHost) socket.emit('startGame', currentRoomId);
+    if (isHost) {
+        console.log('Starting game');
+        socket.emit('startGame', currentRoomId);
+    }
 }
 
 socket.on('gameStarted', () => {
+    console.log('Game started');
     buildLudoBoard();
     goToPage('game');
     document.getElementById('roll-btn').disabled = false;
@@ -272,7 +332,7 @@ function updateBoardTokens(players) {
         token.innerHTML = '👤';
         let targetCell;
         if (player.position === -1) {
-            targetCell = document.getElementById(`cell-${2 + idx * 6}-${2 + idx % 2 * 10}`);
+            targetCell = document.getElementById(`cell-${2 + idx * 6}-${2 + (idx % 2) * 10}`);
         } else if (player.position >= LUDO_PATH.length) {
             targetCell = document.querySelector('.home-section');
         } else {
@@ -285,6 +345,7 @@ function updateBoardTokens(players) {
 
 function rollDice() {
     document.getElementById('roll-btn').disabled = true;
+    console.log('Rolling dice');
     socket.emit('rollDice', currentRoomId);
 }
 
@@ -308,12 +369,14 @@ function animateDice(result) {
 }
 
 socket.on('diceRolled', (data) => {
+    console.log('Dice rolled:', data.roll);
     animateDice(data.roll);
     updateBoardTokens(data.players);
     gameState.players = data.players;
 });
 
 socket.on('turnUpdate', (data) => {
+    console.log('Turn update:', data);
     const isMyTurn = data.activePlayerId === myId;
     const info = document.getElementById('turn-info');
     if (info) info.innerText = isMyTurn ? '⚡ Your Turn!' : `${data.activePlayerName}'s Turn`;
@@ -322,6 +385,7 @@ socket.on('turnUpdate', (data) => {
 });
 
 socket.on('startDuel', (data) => {
+    console.log('Duel started');
     const question = document.getElementById('duel-question');
     if (question) question.innerText = data.riddle.q;
     const optsBox = document.getElementById('duel-options');
@@ -352,6 +416,7 @@ socket.on('startDuel', (data) => {
 });
 
 socket.on('duelEnded', (data) => {
+    console.log('Duel ended:', data.msg);
     const overlay = document.getElementById('duel-overlay');
     if (overlay) overlay.classList.add('hidden');
     showToast(data.msg);
@@ -360,6 +425,7 @@ socket.on('duelEnded', (data) => {
 });
 
 socket.on('gameEnded', (data) => {
+    console.log('Game ended:', data.msg);
     showToast('🏆 ' + data.msg);
     setTimeout(() => handleLeaveGame(), 3000);
 });
@@ -374,5 +440,15 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 4000);
 }
 
-socket.on('connect', () => console.log('Connected'));
-socket.on('disconnect', () => console.log('Disconnected'));
+socket.on('connect', () => {
+    console.log('✅ Connected to server');
+});
+
+socket.on('disconnect', () => {
+    console.log('❌ Disconnected from server');
+});
+
+socket.on('error', (error) => {
+    console.error('Socket error:', error);
+    showToast('Error: ' + error);
+});
