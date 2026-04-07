@@ -1,16 +1,14 @@
+import socket from './socket.js';
 import { updatePlayers } from './ui.js';
 
-const socket = io();
+export function initGame() {
 
-export function setupSocket() {
-
-    socket.on('updateLobby', (players) => {
-        updatePlayers(players);
-    });
-
-    socket.on('diceRolled', (data) => {
+    socket.on('gameUpdate', data => {
         updatePlayers(data.players);
     });
 
-    return socket;
+    socket.on('updatePlayers', players => {
+        updatePlayers(players);
+    });
+
 }
