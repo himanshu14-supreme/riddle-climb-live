@@ -3,146 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Riddle Climb</title>
+    <title>Riddle Climb: Ludo Duel</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div id="auth-screen" class="panel center-panel">
-        <h1 class="game-title">Riddle Climb</h1>
-        <p class="subtitle">Identify yourself, Traveler.</p>
+    <div id="auth-screen" class="lobby-container">
+        <h1>Riddle Ludo</h1>
+        <p style="color: var(--text-dim); margin-bottom: 20px;">Identify yourself, Traveler.</p>
         
-        <div class="input-group">
+        <div style="margin-bottom: 20px;">
             <input type="text" id="guest-name" placeholder="Guest Nickname" maxlength="15">
-            <button class="btn btn-secondary" onclick="playGuest()">Play as Guest</button>
+            <button class="menu-btn" onclick="playGuest()">Play as Guest</button>
         </div>
 
-        <div class="divider"><span>OR ACCOUNT LOGIN</span></div>
+        <div class="divider">OR ACCOUNT LOGIN</div>
 
-        <div class="input-group">
-            <input type="text" id="auth-user" placeholder="Username" maxlength="15">
-            <input type="password" id="auth-pass" placeholder="Password">
-            <div class="row-buttons">
-                <button class="btn btn-primary" onclick="login()">Login</button>
-                <button class="btn btn-outline" onclick="register()">Register</button>
+        <div style="margin-top: 15px;">
+            <input type="text" id="auth-user" placeholder="Username" maxlength="15" style="margin-bottom: 10px;">
+            <input type="password" id="auth-pass" placeholder="Password" style="margin-bottom: 10px;">
+            <div style="display: flex; gap: 10px;">
+                <button class="menu-btn join-variant" onclick="login()">Login</button>
+                <button class="menu-btn" onclick="register()">Register</button>
+            </div>
+            <p id="auth-message" style="color: var(--accent-red); margin-top: 10px; font-size: 0.9rem;"></p>
+        </div>
+    </div>
+
+    <div id="lobby" class="lobby-container hidden">
+        <h1>Grand Hall</h1>
+        <div class="player-card">
+            <span id="player-avatar" style="font-size: 2rem;">👤</span>
+            <div>
+                <h3 id="player-name" style="margin:0; color:var(--accent-gold);">Player</h3>
+                <p style="margin:5px 0 0; color:var(--text-dim);">🪙 <span id="player-coins">0</span> | ⚔️ <span id="player-xp">0</span> XP</p>
             </div>
         </div>
-        <p id="auth-message" class="error-text"></p>
+
+        <button class="menu-btn" onclick="openModal('shop-modal')">🛒 The Armory</button>
+        <button class="menu-btn" onclick="openModal('vault-modal')">🎒 Vault</button>
+        <button class="menu-btn" onclick="openModal('rules-modal')">📜 How to Play</button>
+
+        <div class="divider">MULTIPLAYER</div>
+        <button class="menu-btn join-variant" onclick="hostGame()">Host Game</button>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <input type="text" id="room-code" placeholder="Enter Room Code" style="margin:0;">
+            <button class="menu-btn" style="margin:0; width: auto;" onclick="joinGame()">Join</button>
+        </div>
     </div>
 
-    <div id="lobby" class="panel center-panel hidden">
-        <div class="user-profile">
-            <h2 id="display-name">Player</h2>
-            <div class="stats-row">
-                <span class="stat-badge">🪙 <span id="coin-count">0</span></span>
-                <span class="stat-badge">⭐ <span id="xp-count">0</span> XP</span>
+    <div id="rules-modal" class="modal hidden">
+        <div class="modal-content glass-effect">
+            <button class="back-btn" onclick="closeModal('rules-modal')">&larr; Back</button>
+            <h2 style="color: var(--accent-gold); margin-top: 10px;">How to Play</h2>
+            <div style="text-align: left; line-height: 1.6; color: #cbd5e1;">
+                <p>🎲 <b>LUDO MOVEMENT:</b> Roll the dice to move around the board.</p>
+                <p>⚔️ <b>DUELS:</b> Land on an occupied cell to challenge them. The loser is sent back to Base!</p>
+                <p>😵 <b>STUNNED:</b> Losers skip their next turn.</p>
+                <p>🏁 Reach the center to win!</p>
             </div>
         </div>
-
-        <div class="menu-grid">
-            <button class="btn btn-primary" onclick="openShop()">🛒 Shop</button>
-            <button class="btn btn-secondary" onclick="openVault()">🎒 Vault</button>
-            <button class="btn btn-outline" onclick="openRules()">📖 Rules</button>
-        </div>
-
-        <div class="divider"><span>PLAY</span></div>
-
-        <div class="input-group">
-            <label>Create Room</label>
-            <select id="player-limit" class="input-field">
-                <option value="2">2 Players</option>
-                <option value="3">3 Players</option>
-                <option value="4">4 Players</option>
-            </select>
-            <button class="btn btn-primary" onclick="createRoom()">Create New Game</button>
-        </div>
-
-        <div class="input-group" style="margin-top: 20px;">
-            <label>Join Room</label>
-            <input type="text" id="room-input" placeholder="Enter Room Code" maxlength="6">
-            <button class="btn btn-secondary" onclick="joinRoom()">Join Game</button>
-        </div>
     </div>
 
-    <div id="waiting-room" class="panel center-panel hidden">
-        <h2 id="wait-room-id" class="room-code">ROOM: -----</h2>
-        <p id="player-count-text" class="subtitle">Players: 1/2</p>
-        
-        <ul id="player-list" class="player-list"></ul>
-        
-        <button id="start-game-btn" class="btn btn-primary hidden" onclick="requestStart()" disabled>Start Game</button>
-        <p id="host-wait-msg" class="subtitle hidden">Waiting for host to start...</p>
-    </div>
-
-    <div id="game-screen" class="hidden">
-        <div class="game-header panel">
-            <div id="status" class="status-text">Waiting for players...</div>
-        </div>
-        
-        <div class="board-container">
-            <div id="board" class="board-grid"></div>
-        </div>
-
-        <div class="dice-section panel">
-            <button id="roll-btn" class="btn btn-primary hidden" onclick="triggerRoll()">Roll Dice</button>
-            <div id="dice-display" class="dice">
+    <div id="shop-modal" class="modal hidden">
+        <div class="modal-content glass-effect">
+            <button class="back-btn" onclick="closeModal('shop-modal')">&larr; Back</button>
+            <h2 style="color: var(--accent-gold); margin-top: 10px;">The Armory</h2>
+            <div class="shop-grid" id="shop-items-container">
                 </div>
         </div>
     </div>
 
-    <div id="rules-modal" class="modal">
-        <div class="modal-content">
-            <h2>How to Play</h2>
-            <div class="modal-body text-left">
-                <p>🎲 Roll the dice on your turn to move forward.</p>
-                <p>⚔️ <b>DUELS:</b> Land on an occupied cell to attack! Answer the riddle faster than the defender to win.</p>
-                <p>😵 <b>STUNNED:</b> Losers are pushed back 1 space and skip their next turn.</p>
-                <p>🏁 Reach cell 1 to win!</p>
+    <div id="vault-modal" class="modal hidden">
+        <div class="modal-content glass-effect">
+            <button class="back-btn" onclick="closeModal('vault-modal')">&larr; Back</button>
+            <h2 style="color: var(--accent-gold); margin-top: 10px;">Your Vault</h2>
+            <div id="vault-items" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;"></div>
+        </div>
+    </div>
+
+    <div id="duel-modal" class="modal hidden">
+        <div class="modal-content glass-effect" style="border-color: var(--accent-red);">
+            <h2 style="color: var(--accent-red);">⚔️ DUEL! ⚔️</h2>
+            <h3 id="duel-question" style="margin: 20px 0;">Loading Riddle...</h3>
+            <div id="duel-options" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            <div id="duel-timer" style="font-size: 1.5rem; color: var(--accent-gold); margin-top: 15px; font-weight: bold;">15</div>
+        </div>
+    </div>
+
+    <div id="game-ui" class="hidden" style="width: 100%; max-width: 1000px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--glass-bg); padding: 15px; border-radius: 12px;">
+            <div>
+                <h2 style="margin: 0; color: var(--accent-gold);">Room: <span id="display-room-id"></span></h2>
+                <p id="turn-indicator" style="margin: 5px 0 0; color: var(--accent-green); font-weight: bold;">Waiting for players...</p>
             </div>
-            <button class="btn btn-primary mt-3" onclick="closeModal('rules-modal')">Got it!</button>
+            <button id="start-btn" class="menu-btn join-variant hidden" style="width: auto; margin:0;" onclick="startGame()">Start Game</button>
         </div>
-    </div>
 
-    <div id="shop-modal" class="modal">
-        <div class="modal-content modal-large">
-            <h2>🛒 Shop</h2>
-            <div class="modal-scrollable">
-                <h3 class="section-title">Avatars</h3>
-                <div id="shop-avatars" class="item-grid"></div>
-                <h3 class="section-title mt-3">Abilities</h3>
-                <div id="shop-abilities" class="item-grid"></div>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
+            
+            <div id="board-container">
+                <div id="ludo-board"></div>
             </div>
-            <button class="btn btn-outline mt-3" onclick="closeModal('shop-modal')">Close</button>
-        </div>
-    </div>
 
-    <div id="vault-modal" class="modal">
-        <div class="modal-content modal-large">
-            <h2>🎒 Vault</h2>
-            <div class="modal-scrollable">
-                <h3 class="section-title">Your Avatars</h3>
-                <div id="vault-avatars" class="item-grid"></div>
-                <h3 class="section-title mt-3">Your Abilities</h3>
-                <div id="vault-abilities" class="item-grid"></div>
+            <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 20px;">
+                <div class="lobby-container" style="margin-top: 0; width: 100%; padding: 20px;">
+                    <h3>Players</h3>
+                    <div id="players-list" style="text-align: left; margin-bottom: 20px;"></div>
+                    
+                    <div class="scene">
+                        <div class="cube" id="dice-cube">
+                            <div class="cube__face cube__face--front">1</div>
+                            <div class="cube__face cube__face--back">6</div>
+                            <div class="cube__face cube__face--right">3</div>
+                            <div class="cube__face cube__face--left">4</div>
+                            <div class="cube__face cube__face--top">5</div>
+                            <div class="cube__face cube__face--bottom">2</div>
+                        </div>
+                    </div>
+
+                    <button id="roll-btn" class="menu-btn join-variant" onclick="rollDice()" disabled>Roll Dice</button>
+                </div>
             </div>
-            <button class="btn btn-outline mt-3" onclick="closeModal('vault-modal')">Close</button>
-        </div>
-    </div>
-
-    <div id="riddle-modal" class="modal">
-        <div class="modal-content border-red">
-            <h2 id="modal-title" class="text-red">⚔️ DUEL ⚔️</h2>
-            <p id="riddle-text" class="riddle-text">Loading riddle...</p>
-            <div id="options-box" class="options-grid"></div>
-            <p id="timer-display" class="timer">⏳ 30s</p>
-        </div>
-    </div>
-
-    <div id="spectator-overlay" class="modal">
-        <div class="modal-content border-red">
-            <h2 class="text-red">⚔️ DUEL IN PROGRESS ⚔️</h2>
-            <p id="spectator-msg">Player 1 is fighting Player 2...</p>
         </div>
     </div>
 
