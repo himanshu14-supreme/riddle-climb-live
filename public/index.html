@@ -1,1 +1,392 @@
-"====================================================================================================\n📄 FILE 1: index.html - COMPLETE CODE FOR COPY-PASTE\n====================================================================================================\n\n\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Ludo Battlefield</title>\n    <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap\" rel=\"stylesheet\">\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n\n<!-- PAGE 1: AUTH PAGE -->\n<div id=\"page-auth\" class=\"page active\">\n    <div class=\"auth-container\">\n        <div class=\"auth-header\">\n            <h1>⚔️ Ludo Battlefield</h1>\n            <p>Ancient Riddle Game</p>\n        </div>\n        \n        <div class=\"auth-tabs\">\n            <button class=\"tab-btn active\" onclick=\"switchAuthTab('login')\">Login</button>\n            <button class=\"tab-btn\" onclick=\"switchAuthTab('register')\">Register</button>\n            <button class=\"tab-btn\" onclick=\"switchAuthTab('guest')\">Guest</button>\n        </div>\n\n        <div id=\"login-tab\" class=\"auth-tab active\">\n            <div class=\"form-group\">\n                <label>Username</label>\n                <input type=\"text\" id=\"login-username\" placeholder=\"Enter username\" maxlength=\"15\">\n            </div>\n            <div class=\"form-group\">\n                <label>Password</label>\n                <input type=\"password\" id=\"login-password\" placeholder=\"Enter password\" maxlength=\"20\">\n            </div>\n            <button class=\"btn btn-primary\" onclick=\"handleLogin()\">Login</button>\n            <p id=\"login-message\" class=\"error-msg\"></p>\n        </div>\n\n        <div id=\"register-tab\" class=\"auth-tab\">\n            <div class=\"form-group\">\n                <label>Choose Username</label>\n                <input type=\"text\" id=\"register-username\" placeholder=\"3-15 characters\" maxlength=\"15\">\n            </div>\n            <div class=\"form-group\">\n                <label>Set Password</label>\n                <input type=\"password\" id=\"register-password\" placeholder=\"4+ characters\" maxlength=\"20\">\n            </div>\n            <div class=\"form-group\">\n                <label>Confirm Password</label>\n                <input type=\"password\" id=\"register-confirm\" placeholder=\"Confirm password\" maxlength=\"20\">\n            </div>\n            <button class=\"btn btn-primary\" onclick=\"handleRegister()\">Create Account</button>\n            <p id=\"register-message\" class=\"error-msg\"></p>\n        </div>\n\n        <div id=\"guest-tab\" class=\"auth-tab\">\n            <div class=\"form-group\">\n                <label>Guest Nickname</label>\n                <input type=\"text\" id=\"guest-name\" placeholder=\"Enter your name\" maxlength=\"15\">\n            </div>\n            <p class=\"guest-info\">Play without account</p>\n            <button class=\"btn btn-primary\" onclick=\"handleGuest()\">Enter as Guest</button>\n            <p id=\"guest-message\" class=\"error-msg\"></p>\n        </div>\n    </div>\n</div>\n\n<!-- PAGE 2: LOBBY -->\n<div id=\"page-lobby\" class=\"page\">\n    <div class=\"header-bar\">\n        <button class=\"back-btn\" onclick=\"goBack()\">←</button>\n        <h2>Grand Hall</h2>\n        <div class=\"header-spacer\"></div>\n    </div>\n\n    <div class=\"lobby-content\">\n        <div class=\"player-card\">\n            <div class=\"player-avatar\" id=\"player-avatar-display\">👤</div>\n            <h3 id=\"player-name-display\">Player</h3>\n            <div class=\"player-stats\">\n                <div class=\"stat\">\n                    <span class=\"label\">💰 Coins:</span>\n                    <span class=\"value\" id=\"player-coins-display\">0</span>\n                </div>\n                <div class=\"stat\">\n                    <span class=\"label\">⚡ XP:</span>\n                    <span class=\"value\" id=\"player-xp-display\">0</span>\n                </div>\n            </div>\n        </div>\n\n        <div class=\"menu-section\">\n            <h4>Shop & Inventory</h4>\n            <button class=\"btn btn-secondary\" onclick=\"goToPage('shop')\">🛍️ The Armory</button>\n            <button class=\"btn btn-secondary\" onclick=\"goToPage('vault')\">🏺 Vault</button>\n        </div>\n\n        <div class=\"menu-section\">\n            <h4>Learn & Play</h4>\n            <button class=\"btn btn-secondary\" onclick=\"goToPage('rules')\">📖 How to Play</button>\n        </div>\n\n        <div class=\"menu-section\">\n            <h4>Multiplayer</h4>\n            <button class=\"btn btn-primary\" onclick=\"goToPage('create-room')\">🔥 Create New Room</button>\n            <button class=\"btn btn-secondary\" onclick=\"goToPage('join-room')\">📍 Join Room</button>\n        </div>\n\n        <button class=\"btn btn-logout\" onclick=\"handleLogout()\">Logout</button>\n    </div>\n</div>\n\n<!-- PAGE 3: SHOP -->\n<div id=\"page-shop\" class=\"page\">\n    <div class=\"header-bar\">\n        <button class=\"back-btn\" onclick=\"goBack()\">←</button>\n        <h2>🛍️ The Armory</h2>\n        <div class=\"header-spacer\"></div>\n    </div>\n\n    <div class=\"shop-content\">\n        <div class=\"coins-display\">\n            💰 Coins: <span id=\"shop-coins\">0</span>\n        </div>\n        <div class=\"shop-grid\" id=\"shop-items\"></div>\n    </div>\n</div>\n\n<!-- PAGE 4: VAULT -->\n<div id=\"page-vault\" class=\"page\">\n    <div class=\"header-bar\">\n        <button class=\"back-btn\" onclick=\"goBack()\">←</button>\n        <h2>🏺 Your Vault</h2>\n        <div class=\"header-spacer\"></div>\n    </div>\n\n    <div class=\"vault-content\">\n        <div id=\"vault-items\" class=\"shop-grid\"></div>\n    </div>\n</div>\n\n<!-- PAGE 5: RULES -->\n<div id=\"page-rules\" class=\"page\">\n    <div class=\"header-bar\">\n        <button class=\"back-btn\" onclick=\"goBack()\">←</button>\n        <h2>📖 How to Play</h2>\n        <div class=\"header-spacer\"></div>\n    </div>\n\n    <div class=\"rules-content\">\n        <div class=\"rule-section\">\n            <h3>🎲 Movement</h3>\n            <p>Roll the dice to move your token around the board. Each player has their own colored track.</p>\n        </div>\n\n        <div class=\"rule-section\">\n            <h3>⚔️ Duels</h3>\n            <p>Land on an opponent's token to trigger a riddle duel. Answer faster to win and send them back to base!</p>\n        </div>\n\n        <div class=\"rule-section\">\n            <h3>😵 Stunned</h3>\n            <p>If you lose a duel, you're stunned and sent back to your base. Roll again to escape.</p>\n        </div>\n\n        <div class=\"rule-section\">\n            <h3>🏁 Victory</h3>\n            <p>First player to reach the center HOME and complete the path wins the game!</p>\n        </div>\n\n        <div class=\"rule-section\">\n            <h3>💎 Rewards</h3>\n            <p>Win matches to earn coins and XP. Use coins to buy avatars and abilities in the shop!</p>\n        </div>\n    </div>\n</div>\n\n<!-- PAGE 6: CREATE ROOM -->\n<div id=\"page-create-room\" class=\"page\">\n    <div class=\"header-bar\">\n        <button class=\"back-btn\" onclick=\"goBack()\">←</button>\n        <h2>🔥 Create New Room</h2>\n        <div class=\"header-spacer\"></div>\n    </div>\n\n    <div class=\"create-room-content\">\n        <div class=\"form-group\">\n            <label>Room Name (Optional)</label>\n            <input type=\"text\" id=\"room-name\" placeholder=\"Give your room a name\" maxlength=\"30\">\n        </div>\n\n        <div class=\"info-box\">\n            <p>✓ You will be the host</p>\n            <p>✓ Up to 4 players can join</p>\n            <p>✓ Share the room code with friends</p>\n        </div>\n\n        <button class=\"btn btn-primary\" onclick=\"handleCreateRoom()\">Create Room</button>\n        <p id=\"create-message\" class=\"error-msg\"></p>\n    </div>\n</div>\n\n<!-- PAGE 7: JOIN ROOM -->\n<div id=\"page-join-room\" class=\"page\">\n    <div class=\"header-bar\">\n        <button class=\"back-btn\" onclick=\"goBack()\">←</button>\n        <h2>📍 Join Room</h2>\n        <div class=\"header-spacer\"></div>\n    </div>\n\n    <div class=\"join-room-content\">\n        <div class=\"form-group\">\n            <label>Enter Room Code</label>\n            <input type=\"text\" id=\"join-code\" placeholder=\"e.g., A1B2C3\" maxlength=\"10\">\n        </div>\n\n        <div class=\"info-box\">\n            <p>✓ Get the room code from your friend</p>\n            <p>✓ Room codes are 6 characters</p>\n            <p>✓ Max 4 players per room</p>\n        </div>\n\n        <button class=\"btn btn-primary\" onclick=\"handleJoinRoom()\">Join Room</button>\n        <p id=\"join-message\" class=\"error-msg\"></p>\n    </div>\n</div>\n\n<!-- PAGE 8: WAITING ROOM -->\n<div id=\"page-waiting\" class=\"page\">\n    <div class=\"header-bar\">\n        <button class=\"back-btn\" onclick=\"handleLeaveRoom()\">←</button>\n        <h2>Waiting Room</h2>\n        <div class=\"header-spacer\"></div>\n    </div>\n\n    <div class=\"waiting-content\">\n        <div class=\"room-info\">\n            <p class=\"room-code\">Room Code: <strong id=\"display-room-code\">XXXX</strong></p>\n            <p class=\"room-status\">\n                <span id=\"player-count\">1</span>/4 Players\n                <span id=\"host-badge\" class=\"badge\"></span>\n            </p>\n        </div>\n\n        <div class=\"players-waiting\">\n            <h4>👥 Players in Room</h4>\n            <div id=\"waiting-players-list\" class=\"players-list\"></div>\n        </div>\n\n        <div id=\"start-game-section\" class=\"hidden\">\n            <button class=\"btn btn-primary\" onclick=\"handleStartGame()\">🎮 Start Game</button>\n        </div>\n\n        <div id=\"waiting-message\" class=\"info-box\">\n            Waiting for other players...\n        </div>\n    </div>\n</div>\n\n<!-- PAGE 9: GAME BOARD -->\n<div id=\"page-game\" class=\"page\">\n    <div class=\"header-bar\">\n        <button class=\"back-btn\" onclick=\"handleLeaveGame()\">←</button>\n        <h2>⚔️ Battle</h2>\n        <div class=\"header-spacer\"></div>\n    </div>\n\n    <div class=\"game-content\">\n        <div class=\"game-info\">\n            <p>Room: <strong id=\"game-room-code\">XXXX</strong></p>\n            <p id=\"turn-info\">Waiting to start...</p>\n        </div>\n\n        <div class=\"board-section\">\n            <div id=\"ludo-board-container\" class=\"ludo-board-container\">\n                <div id=\"ludo-board\" class=\"ludo-board\"></div>\n            </div>\n        </div>\n\n        <div class=\"game-controls\">\n            <div class=\"players-panel\">\n                <h4>👥 Roster</h4>\n                <div id=\"game-players-list\" class=\"players-list\"></div>\n            </div>\n\n            <div class=\"dice-panel\">\n                <div class=\"dice-wrapper\">\n                    <div class=\"scene\">\n                        <div class=\"cube\" id=\"dice-cube\">\n                            <div class=\"cube__face cube__face--front\">1</div>\n                            <div class=\"cube__face cube__face--back\">6</div>\n                            <div class=\"cube__face cube__face--right\">3</div>\n                            <div class=\"cube__face cube__face--left\">4</div>\n                            <div class=\"cube__face cube__face--top\">5</div>\n                            <div class=\"cube__face cube__face--bottom\">2</div>\n                        </div>\n                    </div>\n                </div>\n                <button id=\"roll-btn\" class=\"btn btn-primary\" onclick=\"rollDice()\" disabled>🎲 ROLL</button>\n            </div>\n        </div>\n    </div>\n</div>\n\n<!-- PAGE 10: DUEL MODAL -->\n<div id=\"duel-overlay\" class=\"overlay hidden\">\n    <div class=\"duel-modal\">\n        <h2>⚔️ BATTLE INITIATED!</h2>\n        <div class=\"duel-content\">\n            <h3 id=\"duel-question\">Loading riddle...</h3>\n            <div id=\"duel-options\" class=\"duel-options\"></div>\n            <div class=\"duel-timer-display\">\n                <span id=\"duel-timer\">15</span>s\n            </div>\n        </div>\n    </div>\n</div>\n\n<!-- TOAST NOTIFICATIONS -->\n<div id=\"toast-container\" class=\"toast-container\"></div>\n\n<script src=\"/socket.io/socket.io.js\"></script>\n<script src=\"script.js\"></script>\n</body>\n</html>\n\n====================================================================================================\n✅ COPY ENTIRE CODE ABOVE AND PASTE INTO: public/index.html\n====================================================================================================\n"
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const mysql = require('mysql2');
+const path = require('path');
+require('dotenv').config();
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ==================== DATABASE CONNECTION ====================
+
+const db = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'ludo_game',
+    port: process.env.DB_PORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
+const rooms = {};
+const socketToRoom = {};
+
+const RIDDLES = [
+    { q: "What has keys but can't open locks?", options: ["Piano", "Door", "Map", "Computer"], answer: "Piano" },
+    { q: "I speak without a mouth and hear without ears.", options: ["Echo", "Ghost", "Wind", "Sound"], answer: "Echo" },
+    { q: "The more of this there is, the less you see.", options: ["Darkness", "Light", "Fog", "Shadow"], answer: "Darkness" },
+    { q: "What gets wetter the more it dries?", options: ["Towel", "Soap", "Sponge", "Rain"], answer: "Towel" },
+    { q: "I have cities but no houses. What am I?", options: ["Map", "Country", "Globe", "Atlas"], answer: "Map" },
+    { q: "What can travel around the world while staying in a corner?", options: ["Stamp", "Letter", "Plane", "Bird"], answer: "Stamp" }
+];
+
+function generateRoomCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function getRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ==================== DATABASE FUNCTIONS ====================
+
+function registerUser(username, password, callback) {
+    db.query('SELECT id FROM users WHERE username = ?', [username], (err, results) => {
+        if (err) return callback(err, null);
+        if (results && results.length > 0) return callback(new Error('Username exists'), null);
+        
+        const inventory = JSON.stringify(['avatar_peasant', 'ability_none']);
+        db.query(
+            'INSERT INTO users (username, password, coins, xp, inventory, selectedAvatar, selectedAbility) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [username, password, 600, 0, inventory, 'avatar_peasant', 'ability_none'],
+            (err) => {
+                if (err) return callback(err, null);
+                callback(null, {
+                    username,
+                    coins: 600,
+                    xp: 0,
+                    inventory: ['avatar_peasant', 'ability_none'],
+                    selectedAvatar: 'avatar_peasant',
+                    selectedAbility: 'ability_none'
+                });
+            }
+        );
+    });
+}
+
+function loginUser(username, password, callback) {
+    db.query(
+        'SELECT * FROM users WHERE username = ? AND password = ?',
+        [username, password],
+        (err, results) => {
+            if (err) return callback(err, null);
+            if (!results || results.length === 0) return callback(new Error('Invalid credentials'), null);
+            
+            const user = results[0];
+            callback(null, {
+                username: user.username,
+                coins: user.coins,
+                xp: user.xp,
+                inventory: typeof user.inventory === 'string' ? JSON.parse(user.inventory) : user.inventory,
+                selectedAvatar: user.selectedAvatar || 'avatar_peasant',
+                selectedAbility: user.selectedAbility || 'ability_none'
+            });
+        }
+    );
+}
+
+function saveUserData(username, data) {
+    db.query(
+        'UPDATE users SET coins=?, xp=?, inventory=?, selectedAvatar=?, selectedAbility=? WHERE username=?',
+        [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, username],
+        (err) => {
+            if (err) console.error('Save error:', err);
+        }
+    );
+}
+
+// ==================== SOCKET CONNECTIONS ====================
+
+io.on('connection', (socket) => {
+    console.log(`🔗 User connected: ${socket.id}`);
+
+    // ===== AUTHENTICATION =====
+
+    socket.on('auth_register', (data) => {
+        const { username, password } = data;
+        
+        if (!username || !password || username.length < 3) {
+            return socket.emit('auth_error', 'Invalid input');
+        }
+
+        registerUser(username, password, (err, userData) => {
+            if (err) return socket.emit('auth_error', err.message);
+            socket.username = username;
+            socket.emit('auth_success', userData);
+        });
+    });
+
+    socket.on('auth_login', (data) => {
+        const { username, password } = data;
+        
+        if (!username || !password) {
+            return socket.emit('auth_error', 'Fill in all fields');
+        }
+
+        loginUser(username, password, (err, userData) => {
+            if (err) return socket.emit('auth_error', err.message);
+            socket.username = username;
+            socket.emit('auth_success', userData);
+        });
+    });
+
+    socket.on('save_data', (data) => {
+        if (socket.username) {
+            saveUserData(socket.username, data);
+        }
+    });
+
+    // ===== ROOM MANAGEMENT =====
+
+    socket.on('createRoom', (data) => {
+        const roomId = generateRoomCode();
+        const player = {
+            id: socket.id,
+            name: data.playerData.name || data.playerData.username,
+            username: data.playerData.username,
+            position: -1,
+            stunned: false,
+            selectedAvatar: data.playerData.selectedAvatar,
+            selectedAbility: data.playerData.selectedAbility
+        };
+
+        rooms[roomId] = {
+            id: roomId,
+            players: [player],
+            state: 'LOBBY',
+            activePlayerIndex: 0,
+            duel: null
+        };
+
+        socket.join(roomId);
+        socketToRoom[socket.id] = roomId;
+
+        socket.emit('roomJoined', {
+            roomId,
+            isHost: true,
+            gameState: rooms[roomId]
+        });
+
+        io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+        console.log(`🏠 Room ${roomId} created by ${player.name}`);
+    });
+
+    socket.on('joinRoom', (data) => {
+        const roomId = data.roomCode;
+
+        if (!rooms[roomId]) {
+            return socket.emit('auth_error', 'Room not found');
+        }
+
+        if (rooms[roomId].state !== 'LOBBY') {
+            return socket.emit('auth_error', 'Game already started');
+        }
+
+        if (rooms[roomId].players.length >= 4) {
+            return socket.emit('auth_error', 'Room is full');
+        }
+
+        const player = {
+            id: socket.id,
+            name: data.playerData.name || data.playerData.username,
+            username: data.playerData.username,
+            position: -1,
+            stunned: false,
+            selectedAvatar: data.playerData.selectedAvatar,
+            selectedAbility: data.playerData.selectedAbility
+        };
+
+        rooms[roomId].players.push(player);
+        socket.join(roomId);
+        socketToRoom[socket.id] = roomId;
+
+        socket.emit('roomJoined', {
+            roomId,
+            isHost: false,
+            gameState: rooms[roomId]
+        });
+
+        io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+        console.log(`👤 ${player.name} joined room ${roomId}`);
+    });
+
+    socket.on('startGame', (roomId) => {
+        if (!rooms[roomId] || rooms[roomId].players[0].id !== socket.id) {
+            return socket.emit('auth_error', 'Only host can start game');
+        }
+
+        rooms[roomId].state = 'PLAYING';
+        rooms[roomId].activePlayerIndex = 0;
+        io.to(roomId).emit('gameStarted');
+        io.to(roomId).emit('turnUpdate', {
+            activePlayerIndex: 0
+        });
+        console.log(`🎮 Game started in room ${roomId}`);
+    });
+
+    // ===== GAME LOGIC =====
+
+    socket.on('rollDice', (roomId) => {
+        const room = rooms[roomId];
+        if (!room || room.state !== 'PLAYING') return;
+
+        const activePlayer = room.players[room.activePlayerIndex];
+        if (activePlayer.id !== socket.id) return;
+
+        const roll = Math.floor(Math.random() * 6) + 1;
+
+        if (activePlayer.stunned) {
+            activePlayer.stunned = false;
+            io.to(roomId).emit('diceRolled', { roll, players: room.players });
+
+            setTimeout(() => {
+                room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
+                io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
+            }, 2000);
+            return;
+        }
+
+        if (activePlayer.position === -1) {
+            activePlayer.position = roll - 1;
+        } else {
+            activePlayer.position += roll;
+            if (activePlayer.position > 56) activePlayer.position = 56;
+        }
+
+        io.to(roomId).emit('diceRolled', { roll, players: room.players });
+
+        setTimeout(() => {
+            const collision = room.players.find(p =>
+                p.id !== activePlayer.id &&
+                p.position === activePlayer.position &&
+                p.position !== -1 &&
+                p.position !== 56
+            );
+
+            if (collision) {
+                room.state = 'DUEL';
+                const riddle = getRandom(RIDDLES);
+                room.duel = {
+                    attacker: activePlayer,
+                    defender: collision,
+                    riddle,
+                    answers: {}
+                };
+
+                io.to(roomId).emit('startDuel', {
+                    riddle: { q: riddle.q, options: riddle.options },
+                    p1: activePlayer.id,
+                    p2: collision.id
+                });
+
+                setTimeout(() => resolveDuel(roomId, 'timeout'), 16000);
+            } else if (activePlayer.position === 56) {
+                io.to(roomId).emit('gameEnded', { winner: activePlayer.name });
+                room.state = 'LOBBY';
+            } else {
+                room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
+                io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
+            }
+        }, 1500);
+    });
+
+    socket.on('submitDuelAnswer', (data) => {
+        const room = rooms[data.roomId];
+        if (!room || room.state !== 'DUEL') return;
+
+        room.duel.answers[socket.id] = data.answer;
+
+        if (Object.keys(room.duel.answers).length === 2) {
+            resolveDuel(data.roomId, 'answered');
+        }
+    });
+
+    function resolveDuel(roomId, reason) {
+        const room = rooms[roomId];
+        if (!room || !room.duel) return;
+
+        const { attacker, defender, riddle, answers } = room.duel;
+        const attAns = answers[attacker.id];
+        const defAns = answers[defender.id];
+
+        let winner = attacker, loser = defender;
+
+        if (defAns === riddle.answer && attAns !== riddle.answer) {
+            winner = defender;
+            loser = attacker;
+        }
+
+        loser.stunned = true;
+        loser.position = -1;
+
+        io.to(roomId).emit('duelEnded', {
+            message: `⚔️ ${winner.name} won! ${loser.name} was sent to Base!`,
+            players: room.players
+        });
+
+        room.state = 'PLAYING';
+        room.duel = null;
+        room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
+
+        setTimeout(() => {
+            io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
+        }, 2000);
+    }
+
+    socket.on('leaveRoom', (roomId) => {
+        if (rooms[roomId]) {
+            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
+            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+
+            if (rooms[roomId].players.length === 0) {
+                delete rooms[roomId];
+                console.log(`🗑️  Room ${roomId} deleted (empty)`);
+            }
+        }
+        delete socketToRoom[socket.id];
+    });
+
+    socket.on('leaveGame', (roomId) => {
+        if (rooms[roomId]) {
+            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
+            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+
+            if (rooms[roomId].players.length === 0) {
+                delete rooms[roomId];
+            }
+        }
+        delete socketToRoom[socket.id];
+    });
+
+    // ===== DISCONNECT =====
+
+    socket.on('disconnect', () => {
+        console.log(`👋 User disconnected: ${socket.id}`);
+        const roomId = socketToRoom[socket.id];
+
+        if (roomId && rooms[roomId]) {
+            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
+            io.to(roomId).emit('playerListUpdate', rooms[roomId].players);
+
+            if (rooms[roomId].players.length === 0) {
+                delete rooms[roomId];
+            }
+        }
+
+        delete socketToRoom[socket.id];
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`\n🎮 Ludo Battlefield running on port ${PORT}`);
+    console.log(`🌐 Open http://localhost:${PORT} in your browser\n`);
+});
+
+          
