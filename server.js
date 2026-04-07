@@ -1,9 +1,12 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const mysql = require('mysql2');
+require('dotenv').config();
 
-const { movePlayer, checkCollision } = require('./gameEngine');
+const { move, collision } = require('./gameEngine');
 const { rooms, createRoom, joinRoom } = require('./roomManager');
+const setupAuth = require('./auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,65 +14,57 @@ const io = socketIo(server);
 
 app.use(express.static('public'));
 
-io.on('connection', (socket) => {
+const db = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
+});
 
-    console.log("User connected:", socket.id);
+setupAuth(io, db);
+
+io.on('connection', (socket) => {
 
     socket.on('createRoom', () => {
         const room = createRoom(socket);
-
         socket.join(room.id);
 
-        socket.emit('roomJoined', {
-            roomId: room.id,
-            isHost: true
-        });
-
-        io.to(room.id).emit('updateLobby', room.players);
+        socket.emit('roomJoined', { roomId: room.id });
+        io.to(room.id).emit('updatePlayers', room.players);
     });
 
-    socket.on('joinRoom', (roomId) => {
-        const room = rooms[roomId];
+    socket.on('joinRoom', (id) => {
+        const room = rooms[id];
         if (!room) return;
 
         joinRoom(room, socket);
-        socket.join(roomId);
+        socket.join(id);
 
-        socket.emit('roomJoined', {
-            roomId,
-            isHost: false
-        });
-
-        io.to(roomId).emit('updateLobby', room.players);
+        io.to(id).emit('updatePlayers', room.players);
     });
 
     socket.on('rollDice', (roomId) => {
         const room = rooms[roomId];
         if (!room) return;
 
-        const player = room.players[room.turnIndex];
+        const player = room.players[room.turn];
         if (player.id !== socket.id) return;
 
         const roll = Math.floor(Math.random() * 6) + 1;
 
-        movePlayer(player, roll);
+        move(player, roll);
 
-        const hit = checkCollision(room.players, player);
+        const hit = collision(room.players, player);
         if (hit) hit.pos = -1;
 
-        room.turnIndex = (room.turnIndex + 1) % room.players.length;
+        room.turn = (room.turn + 1) % room.players.length;
 
-        io.to(roomId).emit('diceRolled', {
+        io.to(roomId).emit('gameUpdate', {
             roll,
             players: room.players
         });
     });
 
-    socket.on('disconnect', () => {
-        console.log("User disconnected:", socket.id);
-    });
-
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server running on port", PORT));
+server.listen(process.env.PORT || 3000);
