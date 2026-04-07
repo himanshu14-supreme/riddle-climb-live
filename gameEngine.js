@@ -1,27 +1,23 @@
-const TOTAL_CELLS = 56;
+const TOTAL = 56;
 
-function movePlayer(player, roll) {
+function move(player, roll) {
     if (player.pos === -1) {
-        if (roll === 6) {
-            player.pos = 0;
-        }
+        if (roll === 6) player.pos = 0;
         return;
     }
 
     player.pos += roll;
 
-    if (player.pos > TOTAL_CELLS) {
-        player.pos = TOTAL_CELLS;
-    }
+    if (player.pos > TOTAL) player.pos = TOTAL;
 }
 
-function checkCollision(players, currentPlayer) {
-    return players.find(p =>
-        p.id !== currentPlayer.id &&
-        p.pos === currentPlayer.pos &&
-        p.pos !== -1 &&
-        p.pos !== TOTAL_CELLS
+function collision(players, p) {
+    return players.find(x =>
+        x.id !== p.id &&
+        x.pos === p.pos &&
+        x.pos !== -1 &&
+        x.pos !== TOTAL
     );
 }
 
-module.exports = { movePlayer, checkCollision };
+module.exports = { move, collision };
