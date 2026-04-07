@@ -1,15 +1,15 @@
 body {
-    font-family: Arial;
     background: #0f172a;
     color: white;
     text-align: center;
 }
 
-#ludo-board {
-    margin: 20px auto;
+.hidden { display: none; }
+
+#board {
     display: grid;
     grid-template-columns: repeat(15, 30px);
-    width: 450px;
+    margin: 20px auto;
 }
 
 .cell {
@@ -18,13 +18,4 @@ body {
     border: 1px solid #333;
 }
 
-.path {
-    background: #ddd;
-}
-
-.center {
-    background: gold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+.path { background: #ddd; }
