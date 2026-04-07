@@ -1,18 +1,22 @@
 const rooms = {};
 
+function generateRoomId() {
+    return Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
 function createRoom(socket) {
-    const id = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const id = generateRoomId();
 
     rooms[id] = {
         id,
-        players: [{
-            id: socket.id,
-            name: socket.username || "Guest",
-            pos: -1,
-            stunned: false
-        }],
-        turnIndex: 0,
-        state: "LOBBY"
+        players: [
+            {
+                id: socket.id,
+                name: "Player1",
+                pos: -1
+            }
+        ],
+        turnIndex: 0
     };
 
     return rooms[id];
@@ -21,9 +25,8 @@ function createRoom(socket) {
 function joinRoom(room, socket) {
     room.players.push({
         id: socket.id,
-        name: socket.username || "Guest",
-        pos: -1,
-        stunned: false
+        name: "Player" + (room.players.length + 1),
+        pos: -1
     });
 }
 
