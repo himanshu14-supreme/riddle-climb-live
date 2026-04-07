@@ -1,8 +1,6 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
-const bcrypt = require('bcrypt');
-require('dotenv').config();
 
 const { movePlayer, checkCollision } = require('./gameEngine');
 const { rooms, createRoom, joinRoom } = require('./roomManager');
@@ -11,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// ✅ IMPORTANT
+// serve frontend
 app.use(express.static('public'));
 
 io.on('connection', (socket) => {
@@ -20,7 +18,7 @@ io.on('connection', (socket) => {
         const room = createRoom(socket);
 
         socket.join(room.id);
-        socket.emit('roomJoined', { roomId: room.id });
+        socket.emit('roomJoined', { roomId: room.id, isHost: true });
 
         io.to(room.id).emit('updateLobby', room.players);
     });
@@ -32,6 +30,7 @@ io.on('connection', (socket) => {
         joinRoom(room, socket);
         socket.join(id);
 
+        socket.emit('roomJoined', { roomId: id, isHost: false });
         io.to(id).emit('updateLobby', room.players);
     });
 
@@ -40,7 +39,6 @@ io.on('connection', (socket) => {
         if (!room) return;
 
         const player = room.players[room.turnIndex];
-
         if (player.id !== socket.id) return;
 
         const roll = Math.floor(Math.random() * 6) + 1;
@@ -60,6 +58,5 @@ io.on('connection', (socket) => {
 
 });
 
-// ✅ CRITICAL FOR RENDER
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log("Server running on", PORT));
