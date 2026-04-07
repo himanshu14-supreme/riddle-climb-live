@@ -3,132 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ludo Arena: Battlefield</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>Battlefield Ludo</title>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-    <div id="auth-screen" class="lobby-container">
-        <h1 style="color: var(--accent-gold);">Battlefield Ludo</h1>
-        <p style="color: var(--text-dim); margin-bottom: 20px;">Identify yourself, Traveler.</p>
-        
-        <input type="text" id="guest-name" placeholder="Guest Nickname" maxlength="15">
-        <button class="menu-btn" onclick="playGuest()">Play as Guest</button>
+<h1>🎮 Battlefield Ludo</h1>
 
-        <div class="divider">OR ACCOUNT LOGIN</div>
+<div>
+    <button onclick="createRoom()">Create Room</button>
+    <input id="roomInput" placeholder="Room Code">
+    <button onclick="joinRoom()">Join Room</button>
+</div>
 
-        <input type="text" id="auth-user" placeholder="Username" maxlength="15" style="margin-bottom: 10px;">
-        <input type="password" id="auth-pass" placeholder="Password" style="margin-bottom: 10px;">
-        <div style="display: flex; gap: 10px;">
-            <button class="menu-btn join-variant" onclick="login()">Login</button>
-            <button class="menu-btn" onclick="register()">Register</button>
-        </div>
-        <p id="auth-message" style="color: var(--accent-red); margin-top: 10px;"></p>
-    </div>
+<br>
 
-    <div id="lobby" class="lobby-container hidden">
-        <h1 style="color: var(--accent-gold);">Grand Hall</h1>
-        <div class="player-card" style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--glass-border);">
-            <div id="player-avatar" style="font-size: 2.5rem;">👤</div>
-            <h3 id="player-name" style="margin: 5px 0 0;">Player</h3>
-            <p style="margin:5px 0 0; color:var(--text-dim);">🪙 <span id="player-coins" style="color: var(--accent-gold); font-weight:bold;">0</span> | ⚔️ <span id="player-xp">0</span> XP</p>
-        </div>
+<button onclick="rollDice()">🎲 Roll Dice</button>
 
-        <button class="menu-btn" onclick="openModal('shop-modal')">🛒 The Armory</button>
-        <button class="menu-btn" onclick="openModal('vault-modal')">🎒 Vault</button>
-        <button class="menu-btn" onclick="openModal('rules-modal')">📜 How to Play</button>
+<div id="players"></div>
 
-        <div class="divider">MULTIPLAYER</div>
-        <button class="menu-btn join-variant" onclick="hostGame()">Host New Match</button>
-        
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <input type="text" id="room-code" placeholder="Enter Room Code" style="margin:0;">
-            <button class="menu-btn" style="margin:0; width: 100px;" onclick="joinGame()">Join</button>
-        </div>
-    </div>
+<div id="ludo-board"></div>
 
-    <div id="rules-modal" class="modal hidden">
-        <div class="modal-content glass-effect">
-            <button class="back-btn" onclick="closeModal('rules-modal')">&larr; Back</button>
-            <h2 style="color: var(--accent-gold); margin-top: 20px;">How to Play</h2>
-            <div style="text-align: left; line-height: 1.6; color: #cbd5e1; font-size: 0.95rem;">
-                <p>🎲 <b>MOVEMENT:</b> Roll the dice to navigate the battlefield.</p>
-                <p>⚔️ <b>DUELS:</b> Land on an occupied cell to trigger a riddle duel. Answer faster to win!</p>
-                <p>😵 <b>STUNNED:</b> Losers are sent back to Base and must roll again to escape.</p>
-                <p>🏁 Reach the center to claim victory!</p>
-            </div>
-        </div>
-    </div>
+<!-- ✅ REQUIRED: socket.io client -->
+<script src="/socket.io/socket.io.js"></script>
 
-    <div id="shop-modal" class="modal hidden">
-        <div class="modal-content glass-effect" style="max-width: 600px;">
-            <button class="back-btn" onclick="closeModal('shop-modal')">&larr; Back</button>
-            <h2 style="color: var(--accent-gold); margin-top: 20px;">The Armory</h2>
-            <div class="shop-grid" id="shop-items-container" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;"></div>
-        </div>
-    </div>
+<!-- ✅ REQUIRED: module script -->
+<script type="module" src="/main.js"></script>
 
-    <div id="vault-modal" class="modal hidden">
-        <div class="modal-content glass-effect" style="max-width: 600px;">
-            <button class="back-btn" onclick="closeModal('vault-modal')">&larr; Back</button>
-            <h2 style="color: var(--accent-gold); margin-top: 20px;">Your Vault</h2>
-            <div class="shop-grid" id="vault-items" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;"></div>
-        </div>
-    </div>
-
-    <div id="duel-modal" class="modal hidden">
-        <div class="modal-content glass-effect" style="border-color: var(--accent-red);">
-            <h2 style="color: var(--accent-red);">⚔️ BATTLE INITIATED! ⚔️</h2>
-            <h3 id="duel-question" style="margin: 20px 0;">Loading Riddle...</h3>
-            <div id="duel-options" style="display: flex; flex-direction: column; gap: 10px;"></div>
-            <div id="duel-timer" style="font-size: 2rem; color: var(--accent-gold); margin-top: 15px; font-weight: bold;">15</div>
-        </div>
-    </div>
-
-    <div id="game-ui" class="hidden" style="width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center;">
-        
-        <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--glass-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border);">
-            <div>
-                <h3 style="margin: 0; color: var(--accent-gold);">Battle: <span id="display-room-id"></span></h3>
-                <p id="turn-indicator" style="margin: 5px 0 0; color: var(--accent-green); font-weight: bold;">Waiting for players...</p>
-            </div>
-            <button id="start-btn" class="menu-btn join-variant hidden" style="width: auto; margin:0;" onclick="startGame()">Start Game</button>
-        </div>
-
-        <div style="display: flex; width: 100%; gap: 20px; flex-wrap: wrap; justify-content: center;">
-            <div id="board-container">
-                <div id="ludo-board"></div>
-            </div>
-        </div>
-
-        <div class="bottom-controls" style="margin-top: 30px; width: 100%; display: flex; justify-content: center; gap: 40px; align-items: center; background: rgba(0,0,0,0.4); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
-            
-            <div style="flex: 1; min-width: 200px;">
-                <h4 style="margin: 0 0 10px 0; color: var(--accent-gold);">Roster</h4>
-                <div id="players-list" style="text-align: left;"></div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; align-items: center;">
-                <div class="scene" style="margin: 0 0 20px 0;">
-                    <div class="cube" id="dice-cube">
-                        <div class="cube__face cube__face--front">1</div>
-                        <div class="cube__face cube__face--back">6</div>
-                        <div class="cube__face cube__face--right">3</div>
-                        <div class="cube__face cube__face--left">4</div>
-                        <div class="cube__face cube__face--top">5</div>
-                        <div class="cube__face cube__face--bottom">2</div>
-                    </div>
-                </div>
-                <button id="roll-btn" class="menu-btn join-variant" style="margin: 0; width: 150px;" onclick="rollDice()" disabled>Roll Dice</button>
-            </div>
-
-        </div>
-    </div>
-
-    <div id="toast-container"></div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
 </body>
 </html>
