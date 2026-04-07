@@ -1,33 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Battlefield Ludo</title>
-    <link rel="stylesheet" href="/style.css">
+<meta charset="UTF-8">
+<title>Battlefield Ludo Pro</title>
+<link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-<h1>🎮 Battlefield Ludo</h1>
+<h1>⚔️ Battlefield Ludo</h1>
 
-<div>
-    <button onclick="createRoom()">Create Room</button>
-    <input id="roomInput" placeholder="Room Code">
-    <button onclick="joinRoom()">Join Room</button>
+<div id="auth">
+<input id="user" placeholder="Username">
+<input id="pass" placeholder="Password">
+<button onclick="login()">Login</button>
+<button onclick="register()">Register</button>
 </div>
 
-<br>
+<div id="lobby" class="hidden">
+<button onclick="createRoom()">Create Room</button>
+<input id="room">
+<button onclick="joinRoom()">Join</button>
+</div>
 
-<button onclick="rollDice()">🎲 Roll Dice</button>
-
+<div id="game" class="hidden">
+<button onclick="roll()">🎲 Roll</button>
 <div id="players"></div>
+<div id="board"></div>
+</div>
 
-<div id="ludo-board"></div>
-
-<!-- ✅ REQUIRED: socket.io client -->
 <script src="/socket.io/socket.io.js"></script>
-
-<!-- ✅ REQUIRED: module script -->
 <script type="module" src="/main.js"></script>
 
 </body>
