@@ -1,40 +1,101 @@
 const socket = io();
 
 const SHOP_ITEMS = [
-    { id: 'avatar_default', name: 'Peasant', icon: '👤', type: 'avatar', price: 0, desc: 'A simple traveler.' },
-    { id: 'avatar_knight', name: 'Knight', icon: '🛡️', type: 'avatar', price: 150, desc: 'Armor forged in the arena.' },
-    { id: 'avatar_mage', name: 'Mage', icon: '🧙', type: 'avatar', price: 200, desc: 'Master of riddles.' },
-    { id: 'ability_none', name: 'No Ability', icon: '🚫', type: 'ability', price: 0, desc: 'No special abilities.' },
-    { id: 'ability_haste', name: 'Boots of Haste', icon: '⚡', type: 'ability', price: 300, desc: 'Passive: Moves slightly faster.' },
-    { id: 'ability_shield', name: 'Riddle Shield', icon: '🔰', type: 'ability', price: 400, desc: 'Passive: Block one stun.' }
+    { id: 'avatar_peasant', name: 'Peasant', icon: '👤', type: 'avatar', price: 0, desc: 'A humble traveler.' },
+    { id: 'avatar_knight', name: 'Knight', icon: '🛡️', type: 'avatar', price: 150, desc: 'Battle-hardened warrior.' },
+    { id: 'avatar_mage', name: 'Mage', icon: '🧙', type: 'avatar', price: 200, desc: 'Master of arcane arts.' },
+    { id: 'avatar_rogue', name: 'Rogue', icon: '🗡️', type: 'avatar', price: 180, desc: 'Swift shadow dancer.' },
+    { id: 'ability_none', name: 'No Ability', icon: '⭕', type: 'ability', price: 0, desc: 'No special power.' },
+    { id: 'ability_haste', name: 'Haste', icon: '⚡', type: 'ability', price: 300, desc: '+1 Speed bonus.' },
+    { id: 'ability_shield', name: 'Shield', icon: '🔰', type: 'ability', price: 400, desc: 'Block 1 stun.' },
+    { id: 'ability_luck', name: 'Fortune', icon: '🍀', type: 'ability', price: 250, desc: '+1 Dice roll.' }
 ];
 
-let currentUser = { isLoggedIn: false, name: "Guest", coins: 600, xp: 0, inventory: ['avatar_default', 'ability_none'], selectedAvatar: 'avatar_default', selectedAbility: 'ability_none' };
-let currentRoomId = null, isHost = false, myId = null, duelTimerInterval = null;
-
-const ludoPath = [
-    {r:6,c:1},{r:6,c:2},{r:6,c:3},{r:6,c:4},{r:6,c:5},{r:5,c:6},{r:4,c:6},{r:3,c:6},{r:2,c:6},{r:1,c:6},{r:0,c:6},
-    {r:0,c:7},{r:0,c:8},{r:1,c:8},{r:2,c:8},{r:3,c:8},{r:4,c:8},{r:5,c:8},{r:6,c:9},{r:6,c:10},{r:6,c:11},{r:6,c:12},
-    {r:6,c:13},{r:6,c:14},{r:7,c:14},{r:8,c:14},{r:8,c:13},{r:8,c:12},{r:8,c:11},{r:8,c:10},{r:8,c:9},{r:9,c:8},
-    {r:10,c:8},{r:11,c:8},{r:12,c:8},{r:13,c:8},{r:14,c:8},{r:14,c:7},{r:14,c:6},{r:13,c:6},{r:12,c:6},{r:11,c:6},
-    {r:10,c:6},{r:9,c:6},{r:8,c:5},{r:8,c:4},{r:8,c:3},{r:8,c:2},{r:8,c:1},{r:8,c:0},{r:7,c:0},
-    {r:7,c:1},{r:7,c:2},{r:7,c:3},{r:7,c:4},{r:7,c:5} 
+const RIDDLES = [
+    { q: "What has keys but can't open locks?", options: ["Piano", "Door", "Map", "Computer"], answer: "Piano" },
+    { q: "I speak without a mouth and hear without ears.", options: ["Echo", "Ghost", "Wind", "Sound"], answer: "Echo" },
+    { q: "The more of this there is, the less you see.", options: ["Darkness", "Light", "Fog", "Shadow"], answer: "Darkness" },
+    { q: "What gets wetter the more it dries?", options: ["Towel", "Soap", "Sponge", "Rain"], answer: "Towel" },
+    { q: "I have cities but no houses. What am I?", options: ["Map", "Country", "Globe", "Atlas"], answer: "Map" },
+    { q: "What can travel around the world while staying in a corner?", options: ["Stamp", "Letter", "Plane", "Bird"], answer: "Stamp" }
 ];
-const colors = ['#ef4444', '#10b981', '#3b82f6', '#fbbf24'];
 
-// --- AUTHENTICATION ---
+const LUDO_COLORS = ['#dc2626', '#059669', '#1d4ed8', '#ca8a04'];
+const LUDO_COLOR_NAMES = ['Red', 'Green', 'Blue', 'Yellow'];
+
+let currentUser = { isLoggedIn: false, name: "Guest", coins: 600, xp: 0, inventory: ['avatar_peasant', 'ability_none'], selectedAvatar: 'avatar_peasant', selectedAbility: 'ability_none' };
+let currentRoomId = null;
+let isHost = false;
+let myId = null;
+let gameState = { players: [], activePlayerIndex: 0, state: 'LOBBY' };
+let duelInProgress = false;
+
+const LUDO_PATH = generateLudoPath();
+const PLAYER_HOME_POSITIONS = {
+    0: { base: [1, 1], entry: 6 },      // Red
+    1: { base: [1, 13], entry: 24 },    // Green
+    2: { base: [13, 13], entry: 42 },   // Blue
+    3: { base: [13, 1], entry: 30 }     // Yellow
+};
+
+function generateLudoPath() {
+    const path = [];
+    
+    // Starting from top middle and going around clockwise
+    for (let i = 0; i < 6; i++) path.push({ r: i, c: 6 });      // Top straight down
+    for (let i = 7; i < 14; i++) path.push({ r: 6, c: i });     // Top right horizontal
+    for (let i = 6; i >= 0; i--) path.push({ r: i, c: 14 });    // Right side up
+    
+    for (let i = 1; i < 6; i++) path.push({ r: 0, c: 14 - i }); // Top left horizontal
+    for (let i = 1; i < 6; i++) path.push({ r: i, c: 8 });      // Left side down
+    
+    for (let i = 7; i < 14; i++) path.push({ r: 6, c: i });     // Middle right horizontal
+    for (let i = 7; i < 14; i++) path.push({ r: i, c: 6 });     // Bottom straight down
+    
+    for (let i = 7; i < 14; i++) path.push({ r: 14, c: i });    // Bottom horizontal
+    for (let i = 13; i >= 7; i--) path.push({ r: i, c: 14 });   // Right side up again
+    
+    for (let i = 13; i >= 7; i--) path.push({ r: 14, c: i });   // Bottom horizontal back
+    for (let i = 13; i >= 7; i--) path.push({ r: i, c: 8 });    // Left side down again
+    
+    for (let i = 13; i >= 0; i--) path.push({ r: 8, c: i });    // Middle left horizontal
+    
+    return path.slice(0, 52);
+}
+
+// ========== AUTHENTICATION ==========
+
 function playGuest() {
-    currentUser.name = document.getElementById('guest-name').value.trim() || "Guest_" + Math.floor(Math.random()*999);
+    const name = document.getElementById('guest-name').value.trim() || `Guest_${Math.floor(Math.random() * 9999)}`;
+    currentUser = { ...currentUser, name, isLoggedIn: false };
     transitionToLobby();
 }
-function login() { socket.emit('auth_login', { user: document.getElementById('auth-user').value.trim(), pass: document.getElementById('auth-pass').value.trim() }); }
-function register() { socket.emit('auth_register', { user: document.getElementById('auth-user').value.trim(), pass: document.getElementById('auth-pass').value.trim() }); }
+
+function login() {
+    const user = document.getElementById('auth-user').value.trim();
+    const pass = document.getElementById('auth-pass').value.trim();
+    if (!user || !pass) return showToast("Fill in all fields!");
+    socket.emit('auth_login', { user, pass });
+}
+
+function register() {
+    const user = document.getElementById('auth-user').value.trim();
+    const pass = document.getElementById('auth-pass').value.trim();
+    if (!user || !pass) return showToast("Fill in all fields!");
+    if (pass.length < 4) return showToast("Password too short!");
+    socket.emit('auth_register', { user, pass });
+}
 
 socket.on('auth_success', (data) => {
     currentUser = { ...currentUser, ...data, isLoggedIn: true };
     transitionToLobby();
+    showToast(`Welcome back, ${currentUser.name}!`);
 });
-socket.on('auth_error', (msg) => document.getElementById('auth-message').innerText = msg);
+
+socket.on('auth_error', (msg) => {
+    document.getElementById('auth-message').innerText = msg;
+    showToast(msg);
+});
 
 function transitionToLobby() {
     document.getElementById('auth-screen').classList.add('hidden');
@@ -51,202 +112,322 @@ function updateProfileUI() {
     document.getElementById('player-avatar').innerText = avatar ? avatar.icon : '👤';
 }
 
-// --- SHOP & VAULT ---
-function openModal(id) { 
-    if(id === 'shop-modal') renderShop();
-    if(id === 'vault-modal') renderVault();
-    document.getElementById(id).classList.remove('hidden'); 
+// ========== SHOP & VAULT ==========
+
+function openModal(id) {
+    if (id === 'shop-modal') renderShop();
+    if (id === 'vault-modal') renderVault();
+    document.getElementById(id).classList.remove('hidden');
 }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+}
 
 function renderShop() {
-    const box = document.getElementById('shop-items-container');
-    box.innerHTML = '';
+    const container = document.getElementById('shop-items-container');
+    container.innerHTML = '';
     SHOP_ITEMS.forEach(item => {
-        if(item.price === 0) return;
+        if (item.price === 0) return;
         const isOwned = currentUser.inventory.includes(item.id);
-        box.innerHTML += `
+        container.innerHTML += `
             <div class="shop-card">
-                <div class="tooltip-btn">? <span class="tooltip-text">${item.desc}</span></div>
-                <div style="font-size: 2.5rem;">${item.icon}</div>
+                <div class="icon">${item.icon}</div>
                 <h4>${item.name}</h4>
-                <p style="color: var(--accent-gold); margin: 5px 0;">🪙 ${item.price}</p>
+                <p>${item.desc}</p>
+                <p style="color: var(--accent-gold); font-weight: bold;">💰 ${item.price}</p>
                 <button class="menu-btn ${isOwned ? '' : 'join-variant'}" ${isOwned ? 'disabled' : ''} onclick="buyItem('${item.id}', ${item.price})">
-                    ${isOwned ? 'Owned' : 'Buy'}
+                    ${isOwned ? '✓ Owned' : 'Buy'}
                 </button>
-            </div>`;
+            </div>
+        `;
     });
 }
 
 function renderVault() {
-    const box = document.getElementById('vault-items');
-    box.innerHTML = '';
-    SHOP_ITEMS.filter(item => currentUser.inventory.includes(item.id)).forEach(item => {
-        const isEquipped = (currentUser.selectedAvatar === item.id || currentUser.selectedAbility === item.id);
-        box.innerHTML += `
+    const container = document.getElementById('vault-items');
+    container.innerHTML = '';
+    const owned = SHOP_ITEMS.filter(i => currentUser.inventory.includes(i.id));
+    if (owned.length === 0) {
+        container.innerHTML = '<p style="grid-column: 1/-1; color: var(--text-dim);">No items yet!</p>';
+        return;
+    }
+    owned.forEach(item => {
+        const isEquipped = currentUser.selectedAvatar === item.id || currentUser.selectedAbility === item.id;
+        container.innerHTML += `
             <div class="shop-card">
-                <div class="tooltip-btn">? <span class="tooltip-text">${item.desc}</span></div>
-                <div style="font-size: 2.5rem;">${item.icon}</div>
+                <div class="icon">${item.icon}</div>
                 <h4>${item.name}</h4>
+                <p>${item.desc}</p>
                 <button class="menu-btn ${isEquipped ? 'join-variant' : ''}" onclick="equipItem('${item.id}', '${item.type}')">
-                    ${isEquipped ? 'Equipped' : 'Equip'}
+                    ${isEquipped ? '✓ Equipped' : 'Equip'}
                 </button>
-            </div>`;
+            </div>
+        `;
     });
 }
 
 function buyItem(id, price) {
-    if(currentUser.coins < price) return showToast("Not enough coins!");
+    if (currentUser.coins < price) return showToast("Not enough coins!");
     currentUser.coins -= price;
     currentUser.inventory.push(id);
-    if(currentUser.isLoggedIn) socket.emit('save_data', currentUser);
-    updateProfileUI(); renderShop(); showToast("Item Purchased!");
+    if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
+    updateProfileUI();
+    renderShop();
+    showToast("✓ Item purchased!");
 }
 
 function equipItem(id, type) {
-    if(type === 'avatar') currentUser.selectedAvatar = id;
-    if(type === 'ability') currentUser.selectedAbility = id;
-    if(currentUser.isLoggedIn) socket.emit('save_data', currentUser);
-    updateProfileUI(); renderVault(); showToast("Item Equipped!");
+    if (type === 'avatar') currentUser.selectedAvatar = id;
+    if (type === 'ability') currentUser.selectedAbility = id;
+    if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
+    updateProfileUI();
+    renderVault();
+    showToast("✓ Item equipped!");
 }
 
-// --- GAME LOGIC ---
-function hostGame() { socket.emit('createRoom'); }
-function joinGame() { socket.emit('joinRoom', document.getElementById('room-code').value.trim().toUpperCase()); }
+// ========== GAME LOGIC ==========
+
+function hostGame() {
+    socket.emit('createRoom', { playerData: currentUser });
+}
+
+function joinGame() {
+    const code = document.getElementById('room-code').value.trim().toUpperCase();
+    if (!code) return showToast("Enter a room code!");
+    socket.emit('joinRoom', { roomCode: code, playerData: currentUser });
+}
 
 socket.on('roomJoined', (data) => {
-    currentRoomId = data.roomId; isHost = data.isHost; myId = socket.id;
+    currentRoomId = data.roomId;
+    isHost = data.isHost;
+    myId = socket.id;
+    gameState = data.gameState;
+    
     document.getElementById('lobby').classList.add('hidden');
     document.getElementById('game-ui').classList.remove('hidden');
     document.getElementById('display-room-id').innerText = currentRoomId;
+    
     if (isHost) document.getElementById('start-btn').classList.remove('hidden');
+    else document.getElementById('start-btn').classList.add('hidden');
+    
     buildLudoBoard();
+    updateGameUI();
 });
 
-socket.on('updateLobby', (players) => {
-    document.getElementById('players-list').innerHTML = players.map((p, i) => 
-        `<div style="padding: 10px; background: rgba(0,0,0,0.3); border-left: 4px solid ${colors[i%4]}; margin-bottom: 5px;">
-            ${p.name} ${p.id === myId ? '(You)' : ''} ${p.stunned ? '😵' : ''}
-        </div>`
-    ).join('');
-    updateBoardTokens(players);
+socket.on('playerListUpdate', (players) => {
+    gameState.players = players;
+    updatePlayersList();
+    updateBoardTokens();
 });
 
-socket.on('gameStarted', () => { document.getElementById('start-btn').classList.add('hidden'); showToast("Game Started!"); });
+socket.on('gameStarted', () => {
+    showToast("🔥 Game Started!");
+    document.getElementById('start-btn').classList.add('hidden');
+    gameState.state = 'PLAYING';
+    updateGameUI();
+});
 
 socket.on('turnUpdate', (data) => {
-    const isMyTurn = data.activePlayerId === myId;
-    document.getElementById('turn-indicator').innerText = isMyTurn ? "Your Turn!" : `${data.activePlayerName}'s Turn`;
-    document.getElementById('roll-btn').disabled = !isMyTurn;
+    gameState.activePlayerIndex = data.activePlayerIndex;
+    updateGameUI();
 });
-
-function rollDice() {
-    document.getElementById('roll-btn').disabled = true;
-    socket.emit('rollDice', currentRoomId);
-}
 
 socket.on('diceRolled', (data) => {
-    animateDice(data.roll, () => { updateBoardTokens(data.players); });
+    animateDice(data.roll, () => {
+        gameState.players = data.players;
+        updateBoardTokens();
+        updateGameUI();
+    });
 });
 
-function animateDice(result, callback) {
-    const cube = document.getElementById('dice-cube');
-    cube.classList.add('rolling');
-    setTimeout(() => {
-        cube.classList.remove('rolling');
-        let rotX = 0, rotY = 0;
-        switch(result) {
-            case 1: rotX=0; rotY=0; break; case 6: rotX=0; rotY=180; break;
-            case 3: rotX=0; rotY=-90; break; case 4: rotX=0; rotY=90; break;
-            case 5: rotX=-90; rotY=0; break; case 2: rotX=90; rotY=0; break;
-        }
-        cube.style.transform = `translateZ(-50px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
-        setTimeout(callback, 500);
-    }, 1000);
-}
-
-function buildLudoBoard() {
-    const board = document.getElementById('ludo-board');
-    board.innerHTML = '';
-    
-    for(let r = 0; r < 15; r++) {
-        for(let c = 0; c < 15; c++) {
-            const cell = document.createElement('div');
-            cell.className = 'ludo-cell';
-            cell.id = `cell-${r}-${c}`;
-            
-            // Paint Bases
-            if(r<6 && c<6) cell.className += ' base-red';
-            else if(r<6 && c>8) cell.className += ' base-green';
-            else if(r>8 && c<6) cell.className += ' base-blue';
-            else if(r>8 && c>8) cell.className += ' base-yellow';
-            
-            // Paint Path & Bridges
-            const isPath = ludoPath.some(p => p.r === r && p.c === c);
-            if(isPath) {
-                cell.className += ' path-cell';
-                if((r===6&&c===2) || (r===8&&c===12)) cell.className += ' bridge-cell'; // Aesthetic bridges
-            }
-            board.appendChild(cell);
-        }
-    }
-    const center = document.createElement('div');
-    center.className = 'center-home'; center.innerHTML = '🏁';
-    board.appendChild(center);
-}
-
-function updateBoardTokens(players) {
-    document.querySelectorAll('.token').forEach(el => el.remove());
-    players.forEach((p, i) => {
-        const token = document.createElement('div');
-        token.className = `token ${p.stunned ? 'stunned' : ''}`;
-        token.style.backgroundColor = colors[i % 4];
-        token.innerHTML = '👤';
-        
-        let targetCell;
-        if (p.pos === -1) {
-            const bases = [[2,2], [2,12], [12,2], [12,12]];
-            targetCell = document.getElementById(`cell-${bases[i%4][0]}-${bases[i%4][1]}`);
-        } else if (p.pos >= ludoPath.length) targetCell = document.querySelector('.center-home');
-        else targetCell = document.getElementById(`cell-${ludoPath[p.pos].r}-${ludoPath[p.pos].c}`);
-
-        if(targetCell) targetCell.appendChild(token);
-    });
-}
-
-// --- DUEL LOGIC ---
 socket.on('startDuel', (data) => {
-    document.getElementById('duel-question').innerText = data.riddle.q;
-    const optsBox = document.getElementById('duel-options');
-    optsBox.innerHTML = '';
+    if (duelInProgress) return;
+    duelInProgress = true;
     
-    data.riddle.options.forEach(opt => {
+    const riddle = data.riddle;
+    document.getElementById('duel-question').innerText = riddle.q;
+    const optionsBox = document.getElementById('duel-options');
+    optionsBox.innerHTML = '';
+    
+    riddle.options.forEach(opt => {
         const btn = document.createElement('button');
-        btn.className = 'option-btn'; btn.innerText = opt;
+        btn.className = 'option-btn';
+        btn.innerText = opt;
         btn.onclick = () => {
             btn.classList.add('selected');
             document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
             socket.emit('submitDuelAnswer', { roomId: currentRoomId, answer: opt });
         };
-        optsBox.appendChild(btn);
+        optionsBox.appendChild(btn);
     });
-
-    openModal('duel-modal');
-    let timeLeft = 15; document.getElementById('duel-timer').innerText = timeLeft;
-    duelTimerInterval = setInterval(() => {
-        timeLeft--; document.getElementById('duel-timer').innerText = timeLeft;
-        if(timeLeft <= 0) clearInterval(duelTimerInterval);
+    
+    let timeLeft = 15;
+    document.getElementById('duel-timer').innerText = timeLeft;
+    const timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('duel-timer').innerText = timeLeft;
+        if (timeLeft <= 0) clearInterval(timerInterval);
     }, 1000);
+    
+    openModal('duel-modal');
 });
 
 socket.on('duelEnded', (data) => {
-    clearInterval(duelTimerInterval); closeModal('duel-modal');
-    showToast(data.msg); updateBoardTokens(data.players);
+    duelInProgress = false;
+    closeModal('duel-modal');
+    showToast(data.message);
+    gameState.players = data.players;
+    updateBoardTokens();
+    setTimeout(updateGameUI, 1000);
 });
 
-function startGame() { socket.emit('startGame', currentRoomId); }
+socket.on('gameEnded', (data) => {
+    showToast(`🏆 ${data.winner} WON THE GAME!`);
+    setTimeout(() => {
+        document.getElementById('game-ui').classList.add('hidden');
+        document.getElementById('lobby').classList.remove('hidden');
+    }, 3000);
+});
+
+function startGame() {
+    if (!isHost) return;
+    socket.emit('startGame', currentRoomId);
+}
+
+function rollDice() {
+    const rollBtn = document.getElementById('roll-btn');
+    rollBtn.disabled = true;
+    socket.emit('rollDice', currentRoomId);
+}
+
+// ========== BOARD & RENDERING ==========
+
+function buildLudoBoard() {
+    const board = document.getElementById('ludo-board');
+    board.innerHTML = '';
+    
+    for (let r = 0; r < 15; r++) {
+        for (let c = 0; c < 15; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = `cell-${r}-${c}`;
+            
+            // Base areas
+            if (r < 6 && c < 6) cell.classList.add('base-red');
+            else if (r < 6 && c > 8) cell.classList.add('base-green');
+            else if (r > 8 && c < 6) cell.classList.add('base-blue');
+            else if (r > 8 && c > 8) cell.classList.add('base-yellow');
+            
+            // Path
+            const isPath = LUDO_PATH.some(p => p.r === r && p.c === c);
+            if (isPath) {
+                cell.classList.add('path');
+                if ([6, 24, 42, 30].includes(LUDO_PATH.findIndex(p => p.r === r && p.c === c))) {
+                    cell.classList.add('safe');
+                }
+            }
+            
+            // Home
+            if (r === 7 && c === 7) cell.classList.add('home');
+            
+            board.appendChild(cell);
+        }
+    }
+    
+    const center = document.createElement('div');
+    center.className = 'cell center-home';
+    center.innerHTML = '🏁';
+    board.appendChild(center);
+}
+
+function updateBoardTokens() {
+    document.querySelectorAll('.token').forEach(t => t.remove());
+    
+    gameState.players.forEach((player, idx) => {
+        const token = document.createElement('div');
+        token.className = `token ${player.stunned ? 'stunned' : ''}`;
+        token.style.backgroundColor = LUDO_COLORS[idx];
+        token.innerHTML = SHOP_ITEMS.find(i => i.id === player.selectedAvatar)?.icon || '👤';
+        
+        let targetCell;
+        if (player.position === -1) {
+            const basePos = PLAYER_HOME_POSITIONS[idx].base;
+            targetCell = document.getElementById(`cell-${basePos[0]}-${basePos[1]}`);
+        } else if (player.position >= LUDO_PATH.length) {
+            targetCell = document.querySelector('.center-home');
+        } else {
+            const pos = LUDO_PATH[player.position];
+            targetCell = document.getElementById(`cell-${pos.r}-${pos.c}`);
+        }
+        
+        if (targetCell && !targetCell.classList.contains('center-home')) {
+            targetCell.appendChild(token);
+        }
+    });
+}
+
+function updatePlayersList() {
+    const list = document.getElementById('players-list');
+    list.innerHTML = '';
+    
+    gameState.players.forEach((p, idx) => {
+        const isActive = idx === gameState.activePlayerIndex;
+        const row = document.createElement('div');
+        row.className = `player-row ${isActive ? 'active' : ''}`;
+        
+        const avatar = SHOP_ITEMS.find(i => i.id === p.selectedAvatar)?.icon || '👤';
+        const statusEmoji = p.stunned ? '😵' : (isActive ? '🔥' : '⏳');
+        
+        row.innerHTML = `
+            <div>
+                <span style="font-size: 1.2rem; margin-right: 8px;">${avatar}</span>
+                <strong>${p.name}</strong> ${p.id === myId ? '(You)' : ''}
+            </div>
+            <span class="player-status">${statusEmoji} Pos: ${p.position === -1 ? 'Base' : p.position >= LUDO_PATH.length ? 'Home' : p.position}</span>
+        `;
+        list.appendChild(row);
+    });
+}
+
+function updateGameUI() {
+    const activePlayer = gameState.players[gameState.activePlayerIndex];
+    const isMyTurn = activePlayer && activePlayer.id === myId;
+    
+    document.getElementById('turn-indicator').innerText = isMyTurn ? "🔥 Your Turn!" : `${activePlayer?.name}'s Turn`;
+    document.getElementById('roll-btn').disabled = !isMyTurn || gameState.state !== 'PLAYING';
+    
+    updatePlayersList();
+}
+
+function animateDice(result, callback) {
+    const cube = document.getElementById('dice-cube');
+    cube.classList.add('rolling');
+    
+    setTimeout(() => {
+        cube.classList.remove('rolling');
+        
+        const rotations = {
+            1: 'rotateX(0deg) rotateY(0deg)',
+            2: 'rotateX(90deg) rotateY(0deg)',
+            3: 'rotateX(0deg) rotateY(-90deg)',
+            4: 'rotateX(0deg) rotateY(90deg)',
+            5: 'rotateX(-90deg) rotateY(0deg)',
+            6: 'rotateX(180deg) rotateY(0deg)'
+        };
+        
+        cube.style.transform = `translateZ(-40px) ${rotations[result]}`;
+        setTimeout(callback, 600);
+    }, 1000);
+}
+
+// ========== UTILITIES ==========
+
 function showToast(msg) {
     const container = document.getElementById('toast-container');
-    const toast = document.createElement('div'); toast.className = 'toast'; toast.innerText = msg;
-    container.appendChild(toast); setTimeout(() => toast.remove(), 4000);
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
 }
