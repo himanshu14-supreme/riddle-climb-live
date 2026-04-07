@@ -536,3 +536,19 @@ function showToast(msg) {
         toast.remove();
     }, 4000);
 }
+
+// ==================== FIX: Auto-enable roll button ====================
+socket.on('connect', () => {
+    console.log('Connected to server');
+});
+
+socket.on('disconnect', () => {
+    console.log('Disconnected from server');
+    goToPage('lobby');
+});
+
+// ==================== FIX: Handle errors ====================
+socket.on('error', (error) => {
+    console.error('Socket error:', error);
+    showToast('Connection error: ' + error);
+});
