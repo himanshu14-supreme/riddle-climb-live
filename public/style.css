@@ -18,7 +18,6 @@
     --text-dim: #94a3b8;
     --border: rgba(255, 255, 255, 0.1);
     
-    /* Standard Ludo Colors matching your script.js logic */
     --red: #dc2626;
     --green: #059669;
     --blue: #1d4ed8;
@@ -600,7 +599,6 @@ body {
     background: var(--board-bg);
 }
 
-/* Base/Yard Styling */
 .yard {
     padding: 12%;
     border: 1px solid #000;
@@ -619,7 +617,6 @@ body {
     box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
 }
 
-/* Path & Cell Sub-grids */
 .path {
     display: grid;
     border: 1px solid #000;
@@ -648,13 +645,11 @@ body {
     color: rgba(0,0,0,0.5);
 }
 
-/* Background Utility Classes */
 .bg-red { background-color: var(--red); }
 .bg-green { background-color: var(--green); }
 .bg-yellow { background-color: var(--yellow); }
 .bg-blue { background-color: var(--blue); }
 
-/* Center Home Styling */
 .center-home {
     position: relative;
     border: 1px solid #000;
@@ -672,7 +667,6 @@ body {
 .home-yellow { background: var(--yellow); clip-path: polygon(100% 0, 100% 100%, 50% 50%); }
 .home-blue { background: var(--blue); clip-path: polygon(0 100%, 50% 50%, 100% 100%); }
 
-/* Tokens */
 .token {
     position: absolute;
     width: 75%;
@@ -689,7 +683,6 @@ body {
     cursor: pointer;
 }
 
-/* Because Tokens are inside a CSS grid when resting in their bases */
 .yard-box .token {
     position: relative;
     width: 100%;
@@ -708,9 +701,6 @@ body {
     75% { transform: translateX(2px); }
 }
 
-/* ==================================================
-   REMAINING GAME CONTROLS (Untouched logic)
-   ================================================== */
 .game-controls {
     width: 100%;
     max-width: 1200px;
