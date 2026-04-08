@@ -17,6 +17,13 @@
     --text-light: #f1f5f9;
     --text-dim: #94a3b8;
     --border: rgba(255, 255, 255, 0.1);
+    
+    /* Standard Ludo Colors matching your script.js logic */
+    --red: #dc2626;
+    --green: #059669;
+    --blue: #1d4ed8;
+    --yellow: #ca8a04;
+    --board-bg: #e2e8f0;
 }
 
 html, body {
@@ -580,71 +587,92 @@ body {
     overflow: hidden;
 }
 
+/* ==================================================
+   MACRO LAYOUT - LUDO BOARD LOGIC
+   ================================================== */
 .ludo-board {
+    display: grid;
+    grid-template-columns: 6fr 3fr 6fr;
+    grid-template-rows: 6fr 3fr 6fr;
     width: 100%;
     height: 100%;
+    border: 3px solid #000;
+    background: var(--board-bg);
+}
+
+/* Base/Yard Styling */
+.yard {
+    padding: 12%;
+    border: 1px solid #000;
+}
+
+.yard-box {
+    background: var(--board-bg);
+    width: 100%;
+    height: 100%;
+    border-radius: 10%;
     display: grid;
-    grid-template-columns: repeat(15, 1fr);
-    grid-template-rows: repeat(15, 1fr);
-    gap: 2px;
-    background: #000;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 20%;
+    padding: 20%;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
 }
 
-.ludo-cell {
-    background: var(--dark-bg-3);
-    border-radius: 2px;
-    position: relative;
+/* Path & Cell Sub-grids */
+.path {
+    display: grid;
+    border: 1px solid #000;
+}
+
+.path.vertical {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+}
+
+.path.horizontal {
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+}
+
+.cell {
+    border: 1px solid rgba(0,0,0,0.15);
     display: flex;
-    align-items: center;
     justify-content: center;
-    overflow: hidden;
+    align-items: center;
+    position: relative;
 }
 
-.ludo-cell.path {
-    background: #e2e8f0;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+.cell.safe {
+    font-size: 1.5rem;
+    color: rgba(0,0,0,0.5);
 }
 
-.ludo-cell.safe {
-    background: #fef08a;
-    border: 2px solid #cbd5e1;
-}
+/* Background Utility Classes */
+.bg-red { background-color: var(--red); }
+.bg-green { background-color: var(--green); }
+.bg-yellow { background-color: var(--yellow); }
+.bg-blue { background-color: var(--blue); }
 
-.ludo-cell.home {
-    background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(251, 191, 36, 0.1));
-    border: 2px solid var(--primary);
-}
-
-.ludo-cell.base-red {
-    background: rgba(220, 38, 38, 0.15);
-    border: 1px dashed rgba(220, 38, 38, 0.4);
-}
-
-.ludo-cell.base-green {
-    background: rgba(5, 150, 105, 0.15);
-    border: 1px dashed rgba(5, 150, 105, 0.4);
-}
-
-.ludo-cell.base-blue {
-    background: rgba(29, 78, 216, 0.15);
-    border: 1px dashed rgba(29, 78, 216, 0.4);
-}
-
-.ludo-cell.base-yellow {
-    background: rgba(202, 138, 4, 0.15);
-    border: 1px dashed rgba(202, 138, 4, 0.4);
-}
-
+/* Center Home Styling */
 .center-home {
-    grid-column: 8 / 9;
-    grid-row: 8 / 9;
-    background: linear-gradient(135deg, var(--primary), #f59e0b);
-    border: 3px solid var(--primary) !important;
-    font-size: 2rem;
-    z-index: 50;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3), 0 0 20px rgba(251, 191, 36, 0.4);
+    position: relative;
+    border: 1px solid #000;
+    background-color: #000; 
 }
 
+.home-part {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.home-red { background: var(--red); clip-path: polygon(0 0, 50% 50%, 0 100%); }
+.home-green { background: var(--green); clip-path: polygon(0 0, 100% 0, 50% 50%); }
+.home-yellow { background: var(--yellow); clip-path: polygon(100% 0, 100% 100%, 50% 50%); }
+.home-blue { background: var(--blue); clip-path: polygon(0 100%, 50% 50%, 100% 100%); }
+
+/* Tokens */
 .token {
     position: absolute;
     width: 75%;
@@ -661,6 +689,13 @@ body {
     cursor: pointer;
 }
 
+/* Because Tokens are inside a CSS grid when resting in their bases */
+.yard-box .token {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
 .token.stunned {
     filter: grayscale(1) opacity(0.4);
     border: 2px dashed var(--danger);
@@ -673,6 +708,9 @@ body {
     75% { transform: translateX(2px); }
 }
 
+/* ==================================================
+   REMAINING GAME CONTROLS (Untouched logic)
+   ================================================== */
 .game-controls {
     width: 100%;
     max-width: 1200px;
@@ -913,94 +951,4 @@ body {
 
 .hidden {
     display: none !important;
-}
-
-
-
-
-
-/* ==================== LUDO BOARD STYLING ==================== */
-.ludo-board {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-rows: repeat(8, 1fr);
-    gap: 2px;
-    background: #1a1a1a;
-    padding: 10px;
-    border-radius: 8px;
-    max-width: 500px;
-    aspect-ratio: 1;
-}
-
-.ludo-cell {
-    aspect-ratio: 1;
-    background: #2d3748;
-    border: 1px solid #4a5568;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    position: relative;
-    border-radius: 4px;
-}
-
-.ludo-cell.path {
-    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
-    border: 1px solid #94a3b8;
-}
-
-.ludo-cell.empty {
-    background: #1a202c;
-}
-
-.ludo-cell.home-zone {
-    border: 2px solid rgba(0, 0, 0, 0.5);
-    font-size: 1.5rem;
-}
-
-.ludo-cell.home-red {
-    background: rgba(220, 38, 38, 0.2);
-}
-
-.ludo-cell.home-yellow {
-    background: rgba(202, 138, 4, 0.2);
-}
-
-.ludo-cell.home-blue {
-    background: rgba(29, 78, 216, 0.2);
-}
-
-.ludo-cell.home-green {
-    background: rgba(5, 150, 105, 0.2);
-}
-
-.ludo-cell.finish {
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    border: 2px solid #f59e0b;
-    font-size: 1.5rem;
-}
-
-.token {
-    position: absolute;
-    width: 70%;
-    height: 70%;
-    border-radius: 50%;
-    border: 2px solid white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 -1px 2px rgba(0, 0, 0, 0.3);
-    z-index: 20;
-}
-
-.token.stunned {
-    filter: grayscale(1) opacity(0.5);
-    border: 2px dashed #ef4444;
-    animation: shake 0.3s infinite;
-}
-
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(-2px); }
 }
