@@ -182,51 +182,129 @@
             <div id="ludo-board-container" class="ludo-board-container">
                 <div id="ludo-board" class="ludo-board">
                     
-                    <div class="yard bg-red"><div class="yard-box" id="red-base"></div></div>
-
-                    <div class="path vertical">
-                        <div class="cell" id="cell-10"></div> <div class="cell" id="cell-11"></div> <div class="cell" id="cell-12"></div>
-                        <div class="cell" id="cell-9"></div> <div class="cell bg-green" id="green-home-0"></div> <div class="cell safe" id="cell-13">★</div>
-                        <div class="cell safe" id="cell-8">★</div> <div class="cell bg-green" id="green-home-1"></div> <div class="cell" id="cell-14"></div>
-                        <div class="cell" id="cell-7"></div> <div class="cell bg-green" id="green-home-2"></div> <div class="cell" id="cell-15"></div>
-                        <div class="cell" id="cell-6"></div> <div class="cell bg-green" id="green-home-3"></div> <div class="cell" id="cell-16"></div>
-                        <div class="cell" id="cell-5"></div> <div class="cell bg-green" id="green-home-4"></div> <div class="cell" id="cell-17"></div>
+                    <div class="yard yard-red">
+                        <div class="yard-box" id="red-base">
+                            <div class="yard-slot yard-slot-red"></div>
+                            <div class="yard-slot yard-slot-red"></div>
+                            <div class="yard-slot yard-slot-red"></div>
+                            <div class="yard-slot yard-slot-red"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="yard yard-green">
+                        <div class="yard-box" id="green-base">
+                            <div class="yard-slot yard-slot-green"></div>
+                            <div class="yard-slot yard-slot-green"></div>
+                            <div class="yard-slot yard-slot-green"></div>
+                            <div class="yard-slot yard-slot-green"></div>
+                        </div>
                     </div>
 
-                    <div class="yard bg-green"><div class="yard-box" id="green-base"></div></div>
-
-                    <div class="path horizontal">
-                        <div class="cell" id="cell-51"></div> <div class="cell safe" id="cell-0">★</div> <div class="cell" id="cell-1"></div> <div class="cell" id="cell-2"></div> <div class="cell" id="cell-3"></div> <div class="cell" id="cell-4"></div>
-                        <div class="cell" id="cell-50"></div> <div class="cell bg-red" id="red-home-0"></div> <div class="cell bg-red" id="red-home-1"></div> <div class="cell bg-red" id="red-home-2"></div> <div class="cell bg-red" id="red-home-3"></div> <div class="cell bg-red" id="red-home-4"></div>
-                        <div class="cell" id="cell-49"></div> <div class="cell" id="cell-48"></div> <div class="cell safe" id="cell-47">★</div> <div class="cell" id="cell-46"></div> <div class="cell" id="cell-45"></div> <div class="cell" id="cell-44"></div>
+                    <div class="yard yard-yellow">
+                        <div class="yard-box" id="yellow-base">
+                            <div class="yard-slot yard-slot-yellow"></div>
+                            <div class="yard-slot yard-slot-yellow"></div>
+                            <div class="yard-slot yard-slot-yellow"></div>
+                            <div class="yard-slot yard-slot-yellow"></div>
+                        </div>
                     </div>
 
+                    <div class="yard yard-blue">
+                        <div class="yard-box" id="blue-base">
+                            <div class="yard-slot yard-slot-blue"></div>
+                            <div class="yard-slot yard-slot-blue"></div>
+                            <div class="yard-slot yard-slot-blue"></div>
+                            <div class="yard-slot yard-slot-blue"></div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="path path-0"><div class="cell bg-red start" id="cell-0"></div></div>
+                    <div class="path path-1"><div class="cell" id="cell-1"></div></div>
+                    <div class="path path-2"><div class="cell" id="cell-2"></div></div>
+                    <div class="path path-3"><div class="cell" id="cell-3"></div></div>
+                    <div class="path path-4"><div class="cell" id="cell-4"></div></div>
+                    <div class="path path-5"><div class="cell" id="cell-5"></div></div>
+                    <div class="path path-6"><div class="cell" id="cell-6"></div></div>
+                    <div class="path path-7"><div class="cell" id="cell-7"></div></div>
+                    <div class="path path-8"><div class="cell safe" id="cell-8">★</div></div>
+                    <div class="path path-9"><div class="cell" id="cell-9"></div></div>
+                    <div class="path path-10"><div class="cell" id="cell-10"></div></div>
+                    <div class="path path-11"><div class="cell" id="cell-11"></div></div>
+                    <div class="path path-12"><div class="cell" id="cell-12"></div></div>
+                    <div class="path path-13"><div class="cell bg-green start" id="cell-13"></div></div>
+                    <div class="path path-14"><div class="cell" id="cell-14"></div></div>
+                    <div class="path path-15"><div class="cell" id="cell-15"></div></div>
+                    <div class="path path-16"><div class="cell" id="cell-16"></div></div>
+                    <div class="path path-17"><div class="cell" id="cell-17"></div></div>
+                    <div class="path path-18"><div class="cell" id="cell-18"></div></div>
+                    <div class="path path-19"><div class="cell" id="cell-19"></div></div>
+                    <div class="path path-20"><div class="cell" id="cell-20"></div></div>
+                    <div class="path path-21"><div class="cell safe" id="cell-21">★</div></div>
+                    <div class="path path-22"><div class="cell" id="cell-22"></div></div>
+                    <div class="path path-23"><div class="cell" id="cell-23"></div></div>
+                    <div class="path path-24"><div class="cell" id="cell-24"></div></div>
+                    <div class="path path-25"><div class="cell" id="cell-25"></div></div>
+                    <div class="path path-26"><div class="cell bg-yellow start" id="cell-26"></div></div>
+                    <div class="path path-27"><div class="cell" id="cell-27"></div></div>
+                    <div class="path path-28"><div class="cell" id="cell-28"></div></div>
+                    <div class="path path-29"><div class="cell" id="cell-29"></div></div>
+                    <div class="path path-30"><div class="cell" id="cell-30"></div></div>
+                    <div class="path path-31"><div class="cell" id="cell-31"></div></div>
+                    <div class="path path-32"><div class="cell" id="cell-32"></div></div>
+                    <div class="path path-33"><div class="cell" id="cell-33"></div></div>
+                    <div class="path path-34"><div class="cell safe" id="cell-34">★</div></div>
+                    <div class="path path-35"><div class="cell" id="cell-35"></div></div>
+                    <div class="path path-36"><div class="cell" id="cell-36"></div></div>
+                    <div class="path path-37"><div class="cell" id="cell-37"></div></div>
+                    <div class="path path-38"><div class="cell" id="cell-38"></div></div>
+                    <div class="path path-39"><div class="cell bg-blue start" id="cell-39"></div></div>
+                    <div class="path path-40"><div class="cell" id="cell-40"></div></div>
+                    <div class="path path-41"><div class="cell" id="cell-41"></div></div>
+                    <div class="path path-42"><div class="cell" id="cell-42"></div></div>
+                    <div class="path path-43"><div class="cell" id="cell-43"></div></div>
+                    <div class="path path-44"><div class="cell" id="cell-44"></div></div>
+                    <div class="path path-45"><div class="cell" id="cell-45"></div></div>
+                    <div class="path path-46"><div class="cell" id="cell-46"></div></div>
+                    <div class="path path-47"><div class="cell safe" id="cell-47">★</div></div>
+                    <div class="path path-48"><div class="cell" id="cell-48"></div></div>
+                    <div class="path path-49"><div class="cell" id="cell-49"></div></div>
+                    <div class="path path-50"><div class="cell" id="cell-50"></div></div>
+                    <div class="path path-51"><div class="cell" id="cell-51"></div></div>
+
+                    
+                    <div class="path home-stretch-red-0"><div class="cell bg-red" id="red-home-0"></div></div>
+                    <div class="path home-stretch-red-1"><div class="cell bg-red" id="red-home-1"></div></div>
+                    <div class="path home-stretch-red-2"><div class="cell bg-red" id="red-home-2"></div></div>
+                    <div class="path home-stretch-red-3"><div class="cell bg-red" id="red-home-3"></div></div>
+                    <div class="path home-stretch-red-4"><div class="cell bg-red" id="red-home-4"></div></div>
+
+                    <div class="path home-stretch-green-0"><div class="cell bg-green" id="green-home-0"></div></div>
+                    <div class="path home-stretch-green-1"><div class="cell bg-green" id="green-home-1"></div></div>
+                    <div class="path home-stretch-green-2"><div class="cell bg-green" id="green-home-2"></div></div>
+                    <div class="path home-stretch-green-3"><div class="cell bg-green" id="green-home-3"></div></div>
+                    <div class="path home-stretch-green-4"><div class="cell bg-green" id="green-home-4"></div></div>
+
+                    <div class="path home-stretch-yellow-0"><div class="cell bg-yellow" id="yellow-home-0"></div></div>
+                    <div class="path home-stretch-yellow-1"><div class="cell bg-yellow" id="yellow-home-1"></div></div>
+                    <div class="path home-stretch-yellow-2"><div class="cell bg-yellow" id="yellow-home-2"></div></div>
+                    <div class="path home-stretch-yellow-3"><div class="cell bg-yellow" id="yellow-home-3"></div></div>
+                    <div class="path home-stretch-yellow-4"><div class="cell bg-yellow" id="yellow-home-4"></div></div>
+
+                    <div class="path home-stretch-blue-0"><div class="cell bg-blue" id="blue-home-0"></div></div>
+                    <div class="path home-stretch-blue-1"><div class="cell bg-blue" id="blue-home-1"></div></div>
+                    <div class="path home-stretch-blue-2"><div class="cell bg-blue" id="blue-home-2"></div></div>
+                    <div class="path home-stretch-blue-3"><div class="cell bg-blue" id="blue-home-3"></div></div>
+                    <div class="path home-stretch-blue-4"><div class="cell bg-blue" id="blue-home-4"></div></div>
+
+                    
                     <div class="center-home">
                         <div class="home-part home-red"></div>
                         <div class="home-part home-green"></div>
                         <div class="home-part home-yellow"></div>
                         <div class="home-part home-blue"></div>
                     </div>
-
-                    <div class="path horizontal">
-                        <div class="cell" id="cell-18"></div> <div class="cell" id="cell-19"></div> <div class="cell" id="cell-20"></div> <div class="cell safe" id="cell-21">★</div> <div class="cell" id="cell-22"></div> <div class="cell" id="cell-23"></div>
-                        <div class="cell bg-yellow" id="yellow-home-4"></div> <div class="cell bg-yellow" id="yellow-home-3"></div> <div class="cell bg-yellow" id="yellow-home-2"></div> <div class="cell bg-yellow" id="yellow-home-1"></div> <div class="cell bg-yellow" id="yellow-home-0"></div> <div class="cell" id="cell-24"></div>
-                        <div class="cell" id="cell-30"></div> <div class="cell" id="cell-29"></div> <div class="cell" id="cell-28"></div> <div class="cell" id="cell-27"></div> <div class="cell safe" id="cell-26">★</div> <div class="cell" id="cell-25"></div>
-                    </div>
-
-                    <div class="yard bg-blue"><div class="yard-box" id="blue-base"></div></div>
-
-                    <div class="path vertical">
-                        <div class="cell" id="cell-43"></div> <div class="cell bg-blue" id="blue-home-4"></div> <div class="cell" id="cell-31"></div>
-                        <div class="cell" id="cell-42"></div> <div class="cell bg-blue" id="blue-home-3"></div> <div class="cell" id="cell-32"></div>
-                        <div class="cell" id="cell-41"></div> <div class="cell bg-blue" id="blue-home-2"></div> <div class="cell" id="cell-33"></div>
-                        <div class="cell" id="cell-40"></div> <div class="cell bg-blue" id="blue-home-1"></div> <div class="cell safe" id="cell-34">★</div>
-                        <div class="cell safe" id="cell-39">★</div> <div class="cell bg-blue" id="blue-home-0"></div> <div class="cell" id="cell-35"></div>
-                        <div class="cell" id="cell-38"></div> <div class="cell" id="cell-37"></div> <div class="cell" id="cell-36"></div>
-                    </div>
-
-                    <div class="yard bg-yellow"><div class="yard-box" id="yellow-base"></div></div>
-
+                    
                 </div>
             </div>
         </div>
