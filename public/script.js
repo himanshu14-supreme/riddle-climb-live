@@ -9,22 +9,24 @@ const SHOP_ITEMS = [
     { id: 'ability_shield', name: 'Riddle Shield', icon: '🔰', type: 'ability', price: 400, desc: 'Block one stun.' }
 ];
 
-// NEW PROPER LUDO PATH (52 squares)
+// SIMPLE CLEAN LUDO PATH (52 squares - perfect for 4 players)
 const LUDO_PATH = [
-    // Red player track (0-12)
-    {r:0, c:6}, {r:1, c:6}, {r:2, c:6}, {r:3, c:6}, {r:4, c:6}, {r:5, c:6}, {r:6, c:6}, {r:6, c:5}, {r:6, c:4}, {r:6, c:3}, {r:6, c:2}, {r:6, c:1}, {r:6, c:0},
+    // Square 0-12: Starting to first corner
+    {r:0, c:6}, {r:1, c:6}, {r:2, c:6}, {r:3, c:6}, {r:4, c:6}, {r:5, c:6}, {r:6, c:6},
+    {r:6, c:5}, {r:6, c:4}, {r:6, c:3}, {r:6, c:2}, {r:6, c:1}, {r:6, c:0},
     
-    // Yellow player track (13-25)
-    {r:5, c:0}, {r:4, c:0}, {r:3, c:0}, {r:2, c:0}, {r:1, c:0}, {r:0, c:0}, {r:0, c:1}, {r:0, c:2}, {r:0, c:3}, {r:0, c:4}, {r:0, c:5}, {r:0, c:7}, {r:0, c:8},
+    // Square 13-25: Left side going down
+    {r:5, c:0}, {r:4, c:0}, {r:3, c:0}, {r:2, c:0}, {r:1, c:0}, {r:0, c:0}, {r:0, c:1},
+    {r:0, c:2}, {r:0, c:3}, {r:0, c:4}, {r:0, c:5}, {r:0, c:6}, {r:0, c:7},
     
-    // Blue player track (26-38)
-    {r:1, c:8}, {r:2, c:8}, {r:3, c:8}, {r:4, c:8}, {r:5, c:8}, {r:6, c:8}, {r:6, c:9}, {r:6, c:10}, {r:6, c:11}, {r:6, c:12}, {r:6, c:13}, {r:6, c:14}, {r:7, c:14},
+    // Square 26-38: Top side going right
+    {r:1, c:7}, {r:2, c:7}, {r:3, c:7}, {r:4, c:7}, {r:5, c:7}, {r:6, c:7}, {r:7, c:7},
+    {r:7, c:6}, {r:7, c:5}, {r:7, c:4}, {r:7, c:3}, {r:7, c:2}, {r:7, c:1},
     
-    // Green player track (39-51)
-    {r:8, c:14}, {r:9, c:14}, {r:10, c:14}, {r:11, c:14}, {r:12, c:14}, {r:13, c:14}, {r:14, c:14}, {r:14, c:13}, {r:14, c:12}, {r:14, c:11}, {r:14, c:10}, {r:14, c:9}, {r:14, c:8}
+    // Square 39-51: Bottom side
+    {r:7, c:0}, {r:7, c:1}, {r:7, c:2}, {r:7, c:3}, {r:7, c:4}, {r:7, c:5}, {r:7, c:6},
+    {r:7, c:7}, {r:6, c:7}, {r:5, c:7}, {r:4, c:7}, {r:3, c:7}, {r:2, c:7}
 ];
-
-const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 let currentUser = { 
     isLoggedIn: false, 
@@ -222,7 +224,7 @@ function buyItem(id, price) {
     }
     currentUser.coins -= price;
     currentUser.inventory.push(id);
-    if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
+    socket.emit('save_data', currentUser);
     updateProfileUI();
     renderShop();
     renderVault();
@@ -232,7 +234,7 @@ function buyItem(id, price) {
 function equipItem(id, type) {
     if (type === 'avatar') currentUser.selectedAvatar = id;
     if (type === 'ability') currentUser.selectedAbility = id;
-    if (currentUser.isLoggedIn) socket.emit('save_data', currentUser);
+    socket.emit('save_data', currentUser);
     updateProfileUI();
     renderVault();
     showToast('✅ Item equipped!');
@@ -323,47 +325,42 @@ socket.on('gameStarted', () => {
     showToast('🎮 Game Started!');
 });
 
-// ==================== NEW LUDO BOARD SYSTEM ====================
+// ==================== CLEAN SIMPLE LUDO BOARD ====================
 function buildLudoBoard() {
     const board = document.getElementById('ludo-board');
     if (!board) return;
     board.innerHTML = '';
     
-    // Create 15x15 grid
-    for (let r = 0; r < 15; r++) {
-        for (let c = 0; c < 15; c++) {
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
             const cell = document.createElement('div');
             cell.className = 'ludo-cell';
             cell.id = `cell-${r}-${c}`;
             
-            // HOME POSITIONS (RED, YELLOW, BLUE, GREEN)
-            if (r >= 0 && r <= 2 && c >= 0 && c <= 2) {
-                cell.classList.add('home', 'home-red');
+            // Home zones
+            if (r < 2 && c < 2) {
+                cell.classList.add('home-zone', 'home-red');
                 cell.innerHTML = '🔴';
-            } else if (r >= 0 && r <= 2 && c >= 12 && c <= 14) {
-                cell.classList.add('home', 'home-yellow');
+            } else if (r < 2 && c > 5) {
+                cell.classList.add('home-zone', 'home-yellow');
                 cell.innerHTML = '🟡';
-            } else if (r >= 12 && r <= 14 && c >= 12 && c <= 14) {
-                cell.classList.add('home', 'home-green');
+            } else if (r > 5 && c > 5) {
+                cell.classList.add('home-zone', 'home-green');
                 cell.innerHTML = '🟢';
-            } else if (r >= 12 && r <= 14 && c >= 0 && c <= 2) {
-                cell.classList.add('home', 'home-blue');
+            } else if (r > 5 && c < 2) {
+                cell.classList.add('home-zone', 'home-blue');
                 cell.innerHTML = '🔵';
             }
-            // CENTER HOME (SAFE ZONE)
-            else if (r >= 6 && r <= 8 && c >= 6 && c <= 8) {
-                cell.classList.add('center-home');
+            // Center finish
+            else if (r >= 3 && r <= 4 && c >= 3 && c <= 4) {
+                cell.classList.add('finish');
                 cell.innerHTML = '🏁';
             }
-            // MAIN PATH
+            // Main path
             else {
                 const pathIndex = LUDO_PATH.findIndex(p => p.r === r && p.c === c);
                 if (pathIndex !== -1) {
                     cell.classList.add('path');
-                    if (SAFE_ZONES.includes(pathIndex)) {
-                        cell.classList.add('safe');
-                        cell.innerHTML = '★';
-                    }
                 } else {
                     cell.classList.add('empty');
                 }
@@ -387,12 +384,10 @@ function updateBoardTokens(players) {
         let targetCell;
         
         if (player.position === -1) {
-            // Home position based on player index
-            const homePos = [[1, 1], [1, 13], [13, 13], [13, 1]][idx];
+            const homePos = [[1, 1], [1, 6], [6, 6], [6, 1]][idx];
             targetCell = document.getElementById(`cell-${homePos[0]}-${homePos[1]}`);
         } else if (player.position >= LUDO_PATH.length) {
-            // Center home
-            targetCell = document.querySelector('.center-home');
+            targetCell = document.querySelector('.finish');
         } else {
             const pos = LUDO_PATH[player.position];
             targetCell = document.getElementById(`cell-${pos.r}-${pos.c}`);
