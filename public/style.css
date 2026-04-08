@@ -18,10 +18,10 @@
     --text-dim: #94a3b8;
     --border: rgba(255, 255, 255, 0.1);
     
-    --red: #dc2626;
-    --green: #059669;
-    --blue: #1d4ed8;
-    --yellow: #ca8a04;
+    --red: #ef4444;
+    --green: #10b981;
+    --blue: #3b82f6;
+    --yellow: #fde047;
     --board-bg: #e2e8f0;
 }
 
@@ -420,19 +420,6 @@ body {
     line-height: 1.6;
 }
 
-.info-box {
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid var(--success);
-    padding: 15px;
-    border-radius: 10px;
-    margin: 20px 0;
-    color: var(--success);
-}
-
-.info-box p {
-    margin: 8px 0;
-}
-
 .waiting-content {
     flex: 1;
     overflow-y: auto;
@@ -573,53 +560,63 @@ body {
     width: 100%;
 }
 
+/* ==================================================
+   ATTRACTIVE DETAILED LUDO BOARD 
+   ================================================== */
 .ludo-board-container {
     position: relative;
     width: 100%;
     max-width: 600px;
     aspect-ratio: 1 / 1;
     background: var(--dark-bg-2);
-    border: 6px solid var(--dark-bg-3);
-    border-radius: 12px;
-    padding: 10px;
-    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8), 0 15px 40px rgba(0, 0, 0, 0.6);
+    border: 8px solid #1e293b;
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8), 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 0 4px var(--primary);
     overflow: hidden;
 }
 
-/* ==================================================
-   MACRO LAYOUT - LUDO BOARD LOGIC
-   ================================================== */
 .ludo-board {
     display: grid;
     grid-template-columns: 6fr 3fr 6fr;
     grid-template-rows: 6fr 3fr 6fr;
     width: 100%;
     height: 100%;
-    border: 3px solid #000;
-    background: var(--board-bg);
+    border: 4px solid #0f172a;
+    background: #cbd5e1;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    border-radius: 4px;
 }
 
 .yard {
-    padding: 12%;
-    border: 1px solid #000;
+    padding: 10%;
+    border: 2px solid #0f172a;
+    position: relative;
 }
 
+.yard.bg-red { background: radial-gradient(circle at center, #fca5a5, #dc2626); }
+.yard.bg-green { background: radial-gradient(circle at center, #6ee7b7, #059669); }
+.yard.bg-yellow { background: radial-gradient(circle at center, #fef08a, #ca8a04); }
+.yard.bg-blue { background: radial-gradient(circle at center, #93c5fd, #1d4ed8); }
+
 .yard-box {
-    background: var(--board-bg);
+    background: rgba(255, 255, 255, 0.95);
     width: 100%;
     height: 100%;
-    border-radius: 10%;
+    border-radius: 15%;
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
-    gap: 20%;
-    padding: 20%;
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+    gap: 15%;
+    padding: 15%;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.4), 0 4px 10px rgba(0,0,0,0.5);
+    border: 3px solid rgba(0,0,0,0.2);
 }
 
 .path {
     display: grid;
-    border: 1px solid #000;
+    border: 2px solid #0f172a;
+    background-color: #f8fafc;
 }
 
 .path.vertical {
@@ -633,27 +630,32 @@ body {
 }
 
 .cell {
-    border: 1px solid rgba(0,0,0,0.15);
+    border: 1px solid rgba(0,0,0,0.2);
     display: flex;
     justify-content: center;
     align-items: center;
     position: relative;
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.05);
 }
+
+.cell.bg-red { background: linear-gradient(135deg, #fca5a5, #ef4444); border-color: #991b1b; }
+.cell.bg-green { background: linear-gradient(135deg, #6ee7b7, #10b981); border-color: #065f46; }
+.cell.bg-yellow { background: linear-gradient(135deg, #fef08a, #eab308); border-color: #a16207; }
+.cell.bg-blue { background: linear-gradient(135deg, #93c5fd, #3b82f6); border-color: #1e3a8a; }
 
 .cell.safe {
-    font-size: 1.5rem;
-    color: rgba(0,0,0,0.5);
+    font-size: 1.8rem;
+    color: var(--primary);
+    text-shadow: 0 0 5px rgba(251, 191, 36, 0.8), 0 0 10px rgba(0,0,0,0.5);
+    background: radial-gradient(circle, #334155 0%, #0f172a 100%);
+    border-color: #000;
 }
-
-.bg-red { background-color: var(--red); }
-.bg-green { background-color: var(--green); }
-.bg-yellow { background-color: var(--yellow); }
-.bg-blue { background-color: var(--blue); }
 
 .center-home {
     position: relative;
-    border: 1px solid #000;
-    background-color: #000; 
+    border: 2px solid #0f172a;
+    background-color: #1e293b;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
 }
 
 .home-part {
@@ -662,11 +664,12 @@ body {
     height: 100%;
 }
 
-.home-red { background: var(--red); clip-path: polygon(0 0, 50% 50%, 0 100%); }
-.home-green { background: var(--green); clip-path: polygon(0 0, 100% 0, 50% 50%); }
-.home-yellow { background: var(--yellow); clip-path: polygon(100% 0, 100% 100%, 50% 50%); }
-.home-blue { background: var(--blue); clip-path: polygon(0 100%, 50% 50%, 100% 100%); }
+.home-red { background: linear-gradient(135deg, #ef4444, #991b1b); clip-path: polygon(0 0, 50% 50%, 0 100%); border-right: 1px solid rgba(0,0,0,0.5); }
+.home-green { background: linear-gradient(225deg, #10b981, #065f46); clip-path: polygon(0 0, 100% 0, 50% 50%); border-bottom: 1px solid rgba(0,0,0,0.5); }
+.home-yellow { background: linear-gradient(315deg, #eab308, #a16207); clip-path: polygon(100% 0, 100% 100%, 50% 50%); border-left: 1px solid rgba(0,0,0,0.5); }
+.home-blue { background: linear-gradient(45deg, #3b82f6, #1e3a8a); clip-path: polygon(0 100%, 50% 50%, 100% 100%); border-top: 1px solid rgba(0,0,0,0.5); }
 
+/* Elevated 3D Tokens */
 .token {
     position: absolute;
     width: 75%;
@@ -677,7 +680,7 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 1rem;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 -4px 8px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.6);
     z-index: 10;
     transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
     cursor: pointer;
@@ -700,6 +703,8 @@ body {
     25% { transform: translateX(-2px); }
     75% { transform: translateX(2px); }
 }
+
+/* ================================================== */
 
 .game-controls {
     width: 100%;
