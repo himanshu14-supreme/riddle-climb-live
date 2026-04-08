@@ -83,16 +83,15 @@ function createTables() {
             console.error('❌ Cannot create users table:', err.message);
             return;
         }
-        console.log('✅ Users table created');
+        console.log('✅ Users table ready');
         
-        db.query('SELECT * FROM users WHERE username = ?', ['testuser'], (err, results) => {
-            if (err) return;
-            if (!results || results.length === 0) {
+        db.query('SELECT COUNT(*) as count FROM users', (err, results) => {
+            if (!err && results[0].count === 0) {
                 db.query(
                     'INSERT INTO users (username, password, coins, xp) VALUES (?, ?, ?, ?)',
                     ['testuser', 'test123', 1000, 100],
                     (err) => {
-                        if (!err) console.log('✅ Test user created: testuser / test123');
+                        if (!err) console.log('✅ Test user ready: testuser / test123');
                     }
                 );
             }
@@ -102,6 +101,7 @@ function createTables() {
 
 const rooms = {};
 const socketToRoom = {};
+const userSessions = {};
 
 const RIDDLES = [
     { q: "What has keys but can't open locks?", options: ["Piano", "Door", "Map", "Computer"], answer: "Piano" },
@@ -129,6 +129,7 @@ io.on('connection', (socket) => {
         
         db.query('SELECT * FROM users WHERE username = ?', [user], (err, results) => {
             if (err) {
+                console.error('Register check error:', err);
                 socket.emit('auth_error', 'Database error');
                 return;
             }
@@ -139,15 +140,17 @@ io.on('connection', (socket) => {
             }
             
             db.query(
-                'INSERT INTO users (username, password, coins, xp) VALUES (?, ?, ?, ?)',
-                [user, pass, 600, 0],
+                'INSERT INTO users (username, password, coins, xp, inventory, selectedAvatar, selectedAbility) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [user, pass, 600, 0, '["avatar_default", "ability_none"]', 'avatar_default', 'ability_none'],
                 (err) => {
                     if (err) {
+                        console.error('Register insert error:', err);
                         socket.emit('auth_error', 'Registration failed');
                         return;
                     }
                     
                     socket.username = user;
+                    userSessions[socket.id] = { username: user, coins: 600, xp: 0 };
                     console.log('✅ User registered:', user);
                     
                     socket.emit('auth_success', {
@@ -173,6 +176,7 @@ io.on('connection', (socket) => {
         
         db.query('SELECT * FROM users WHERE username = ? AND password = ?', [user, pass], (err, results) => {
             if (err) {
+                console.error('Login query error:', err);
                 socket.emit('auth_error', 'Database error');
                 return;
             }
@@ -191,8 +195,17 @@ io.on('connection', (socket) => {
                     inventory = JSON.parse(u.inventory);
                 }
             } catch (e) {
-                console.log('Inventory parse error');
+                console.log('Inventory parse error, using default');
             }
+            
+            userSessions[socket.id] = {
+                username: u.username,
+                coins: u.coins || 600,
+                xp: u.xp || 0,
+                inventory: inventory,
+                selectedAvatar: u.selectedAvatar || 'avatar_default',
+                selectedAbility: u.selectedAbility || 'ability_none'
+            };
             
             console.log('✅ User logged in:', user);
             
@@ -211,10 +224,15 @@ io.on('connection', (socket) => {
         if (!socket.username) return;
         
         db.query(
-            'UPDATE users SET coins=?, xp=?, inventory=?, selectedAvatar=?, selectedAbility=? WHERE username=?',
+            'UPDATE users SET coins = ?, xp = ?, inventory = ?, selectedAvatar = ?, selectedAbility = ? WHERE username = ?',
             [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, socket.username],
             (err) => {
-                if (err) console.error('Save error:', err.message);
+                if (err) {
+                    console.error('Save error:', err);
+                } else {
+                    console.log('✅ Data saved for:', socket.username);
+                    userSessions[socket.id] = data;
+                }
             }
         );
     });
@@ -477,6 +495,7 @@ io.on('connection', (socket) => {
             }
         }
         delete socketToRoom[socket.id];
+        delete userSessions[socket.id];
         console.log('❌ User disconnected:', socket.id);
     });
 
