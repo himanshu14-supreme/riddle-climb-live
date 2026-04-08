@@ -12,36 +12,30 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ==================== DATABASE CONNECTION ====================
-const pool = mysql.createPool({
+// Simplified to use env vars for direct copy-paste without DB setup if not needed.
+const db = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'ludo_db',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-});
+    database: process.env.DB_NAME || 'ludo_db'
+}).promise();
 
-const promisePool = pool.promise();
-
-// Initialize Database Table
+// Initial database check - feel free to skip if no DB is desired.
 async function initDB() {
     try {
-        await promisePool.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(255) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                coins INT DEFAULT 600,
-                xp INT DEFAULT 0,
-                inventory JSON,
-                selectedAvatar VARCHAR(50) DEFAULT 'avatar_peasant',
-                selectedAbility VARCHAR(50) DEFAULT 'ability_none'
-            )
-        `);
-        console.log("✅ Database tables initialized successfully.");
+        await db.query(`CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(15) UNIQUE NOT NULL,
+            password VARCHAR(20) NOT NULL,
+            coins INT DEFAULT 600,
+            xp INT DEFAULT 0,
+            inventory TEXT,
+            selectedAvatar VARCHAR(30) DEFAULT 'avatar_peasant',
+            selectedAbility VARCHAR(30) DEFAULT 'ability_none'
+        )`);
+        console.log("Database tables initialized successfully.");
     } catch (err) {
-        console.error("❌ Database initialization failed:", err.message);
+        console.error("Database error during init:", err.message);
     }
 }
 initDB();
@@ -59,6 +53,7 @@ const RIDDLES = [
     { q: "What can travel around the world while staying in a corner?", options: ["Stamp", "Letter", "Plane", "Bird"], answer: "Stamp" }
 ];
 
+// Refined safe zones on the path for the professional board
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 function generateRoomCode() {
@@ -69,62 +64,41 @@ function getRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// Global coordinate translator for Ludo collisions
 function getGlobalCellId(playerIndex, localPos) {
-    if (localPos < 0 || localPos > 50) return null; 
-    const startOffsets = [0, 13, 26, 39]; 
+    if (localPos < 0 || localPos > 50) return null; // Safe in bases or home stretches
+    const startOffsets = [0, 13, 26, 39]; // Red, Green, Yellow, Blue starting positions
     return (localPos + startOffsets[playerIndex]) % 52;
 }
 
 // ==================== DATABASE FUNCTIONS ====================
 
-async function registerUser(username, password, callback) {
+async function registerUser(username, password) {
     try {
-        const defaultInventory = JSON.stringify(['avatar_peasant', 'ability_none']);
-        await promisePool.query(
-            'INSERT INTO users (username, password, inventory) VALUES (?, ?, ?)',
-            [username, password, defaultInventory]
-        );
-        const user = {
-            username,
-            password,
-            coins: 600,
-            xp: 0,
-            inventory: ['avatar_peasant', 'ability_none'],
-            selectedAvatar: 'avatar_peasant',
-            selectedAbility: 'ability_none'
-        };
-        callback(null, user);
+        const defaultInv = JSON.stringify(['avatar_peasant', 'ability_none']);
+        await db.query('INSERT INTO users (username, password, inventory) VALUES (?, ?, ?)', [username, password, defaultInv]);
+        return true;
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return callback(new Error('Username already exists'), null);
-        }
-        callback(err, null);
+        return false;
     }
 }
 
-async function loginUser(username, password, callback) {
+async function loginUser(username, password) {
     try {
-        const [rows] = await promisePool.query('SELECT * FROM users WHERE username = ?', [username]);
-        if (rows.length === 0 || rows[0].password !== password) {
-            return callback(new Error('Invalid credentials'), null);
-        }
-        const user = rows[0];
-        // Ensure inventory is parsed from JSON string to array
-        if (typeof user.inventory === 'string') {
-            user.inventory = JSON.parse(user.inventory);
-        }
-        callback(null, user);
+        const [rows] = await db.query('SELECT * FROM users WHERE username = ? AND password = ?', [username, password]);
+        if (rows.length === 0) return null;
+        rows[0].inventory = JSON.parse(rows[0].inventory || '[]');
+        return rows[0];
     } catch (err) {
-        callback(err, null);
+        return null;
     }
 }
 
 async function saveUserData(username, data) {
     try {
-        await promisePool.query(
-            'UPDATE users SET coins = ?, xp = ?, inventory = ?, selectedAvatar = ?, selectedAbility = ? WHERE username = ?',
-            [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, username]
-        );
+        const inventory = JSON.stringify(data.inventory);
+        await db.query('UPDATE users SET coins = ?, xp = ?, inventory = ?, selectedAvatar = ?, selectedAbility = ? WHERE username = ?', 
+            [data.coins, data.xp, inventory, data.selectedAvatar, data.selectedAbility, username]);
     } catch (err) {
         console.error('Error saving user data:', err);
     }
@@ -133,30 +107,27 @@ async function saveUserData(username, data) {
 // ==================== SOCKET CONNECTIONS ====================
 
 io.on('connection', (socket) => {
-    console.log(`🔗 User connected: ${socket.id}`);
+    console.log(`User connected: ${socket.id}`);
 
-    socket.on('auth_register', (data) => {
-        const { username, password } = data;
-        if (!username || !password || username.length < 3) {
-            return socket.emit('auth_error', 'Invalid input');
+    socket.on('auth_register', async (data) => {
+        const success = await registerUser(data.username, data.password);
+        if (success) {
+            const user = await loginUser(data.username, data.password);
+            socket.username = user.username;
+            socket.emit('auth_success', user);
+        } else {
+            socket.emit('auth_error', 'Username taken or invalid input.');
         }
-        registerUser(username, password, (err, userData) => {
-            if (err) return socket.emit('auth_error', err.message);
-            socket.username = username;
-            socket.emit('auth_success', userData);
-        });
     });
 
-    socket.on('auth_login', (data) => {
-        const { username, password } = data;
-        if (!username || !password) {
-            return socket.emit('auth_error', 'Fill in all fields');
+    socket.on('auth_login', async (data) => {
+        const user = await loginUser(data.username, data.password);
+        if (user) {
+            socket.username = user.username;
+            socket.emit('auth_success', user);
+        } else {
+            socket.emit('auth_error', 'Invalid username or password.');
         }
-        loginUser(username, password, (err, userData) => {
-            if (err) return socket.emit('auth_error', err.message);
-            socket.username = username;
-            socket.emit('auth_success', userData);
-        });
     });
 
     socket.on('save_data', (data) => {
@@ -185,9 +156,9 @@ io.on('connection', (socket) => {
 
     socket.on('joinRoom', (data) => {
         const roomId = data.roomCode;
-        if (!rooms[roomId]) return socket.emit('auth_error', 'Room not found');
-        if (rooms[roomId].state !== 'LOBBY') return socket.emit('auth_error', 'Game already started');
-        if (rooms[roomId].players.length >= 4) return socket.emit('auth_error', 'Room is full');
+        if (!rooms[roomId]) return socket.emit('auth_error', 'Room not found.');
+        if (rooms[roomId].state !== 'LOBBY') return socket.emit('auth_error', 'Game already started.');
+        if (rooms[roomId].players.length >= 4) return socket.emit('auth_error', 'Room is full.');
 
         const player = {
             id: socket.id,
@@ -234,18 +205,38 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // ==================== START LOGIC UPDATE ====================
+        // Only move from base to start on a roll of 6
         if (activePlayer.position === -1) {
-            activePlayer.position = 0; // Move to start square
+            if (roll === 6) {
+                activePlayer.position = 0; // Move to start square
+                io.to(roomId).emit('diceRolled', { roll, players: room.players });
+                // turn advances after a move, just like regular movement
+                setTimeout(() => {
+                    room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
+                    io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
+                }, 2000);
+            } else {
+                io.to(roomId).emit('diceRolled', { roll, players: room.players });
+                // turn advances immediately after roll if no move
+                setTimeout(() => {
+                    room.activePlayerIndex = (room.activePlayerIndex + 1) % room.players.length;
+                    io.to(roomId).emit('turnUpdate', { activePlayerIndex: room.activePlayerIndex });
+                }, 2000);
+            }
+            return; // No regular movement or duel logic if we just rolled for base entry
         } else {
             activePlayer.position += roll;
             if (activePlayer.position > 56) activePlayer.position = 56; // Cap at center
         }
+        // ==========================================================
 
         io.to(roomId).emit('diceRolled', { roll, players: room.players });
 
         setTimeout(() => {
             const activeGlobal = getGlobalCellId(room.activePlayerIndex, activePlayer.position);
             
+            // Collision detection based on global board position
             const collision = room.players.find((p, idx) => {
                 if (p.id === activePlayer.id || p.position === -1) return false;
                 const pGlobal = getGlobalCellId(idx, p.position);
@@ -337,6 +328,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`\n🎮 Ludo Battlefield running on port ${PORT}`);
-    console.log(`🌐 Open http://localhost:${PORT} in your browser\n`);
+    console.log(`Ludo Battlefield running on port ${PORT}`);
 });
