@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const mysql = require('mysql2');
 require('dotenv').config();
 
 const app = express();
@@ -10,10 +11,42 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== IN-MEMORY DATABASE ====================
-// Replaced MySQL with an in-memory object so the game works instantly without database setup.
-const usersDB = {}; 
+// ==================== DATABASE CONNECTION ====================
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'ludo_db',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
 
+const promisePool = pool.promise();
+
+// Initialize Database Table
+async function initDB() {
+    try {
+        await promisePool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                coins INT DEFAULT 600,
+                xp INT DEFAULT 0,
+                inventory JSON,
+                selectedAvatar VARCHAR(50) DEFAULT 'avatar_peasant',
+                selectedAbility VARCHAR(50) DEFAULT 'ability_none'
+            )
+        `);
+        console.log("✅ Database tables initialized successfully.");
+    } catch (err) {
+        console.error("❌ Database initialization failed:", err.message);
+    }
+}
+initDB();
+
+// ==================== STATE ====================
 const rooms = {};
 const socketToRoom = {};
 
@@ -36,46 +69,64 @@ function getRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Global coordinate translator for Ludo collisions
 function getGlobalCellId(playerIndex, localPos) {
-    if (localPos < 0 || localPos > 50) return null; // Safe in bases or home stretches
-    const startOffsets = [0, 13, 26, 39]; // Red, Green, Yellow, Blue starting positions
+    if (localPos < 0 || localPos > 50) return null; 
+    const startOffsets = [0, 13, 26, 39]; 
     return (localPos + startOffsets[playerIndex]) % 52;
 }
 
 // ==================== DATABASE FUNCTIONS ====================
 
-function registerUser(username, password, callback) {
-    if (usersDB[username]) {
-        return callback(new Error('Username already exists'), null);
+async function registerUser(username, password, callback) {
+    try {
+        const defaultInventory = JSON.stringify(['avatar_peasant', 'ability_none']);
+        await promisePool.query(
+            'INSERT INTO users (username, password, inventory) VALUES (?, ?, ?)',
+            [username, password, defaultInventory]
+        );
+        const user = {
+            username,
+            password,
+            coins: 600,
+            xp: 0,
+            inventory: ['avatar_peasant', 'ability_none'],
+            selectedAvatar: 'avatar_peasant',
+            selectedAbility: 'ability_none'
+        };
+        callback(null, user);
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return callback(new Error('Username already exists'), null);
+        }
+        callback(err, null);
     }
-    usersDB[username] = {
-        username,
-        password,
-        coins: 600,
-        xp: 0,
-        inventory: ['avatar_peasant', 'ability_none'],
-        selectedAvatar: 'avatar_peasant',
-        selectedAbility: 'ability_none'
-    };
-    callback(null, usersDB[username]);
 }
 
-function loginUser(username, password, callback) {
-    const user = usersDB[username];
-    if (!user || user.password !== password) {
-        return callback(new Error('Invalid credentials'), null);
+async function loginUser(username, password, callback) {
+    try {
+        const [rows] = await promisePool.query('SELECT * FROM users WHERE username = ?', [username]);
+        if (rows.length === 0 || rows[0].password !== password) {
+            return callback(new Error('Invalid credentials'), null);
+        }
+        const user = rows[0];
+        // Ensure inventory is parsed from JSON string to array
+        if (typeof user.inventory === 'string') {
+            user.inventory = JSON.parse(user.inventory);
+        }
+        callback(null, user);
+    } catch (err) {
+        callback(err, null);
     }
-    callback(null, user);
 }
 
-function saveUserData(username, data) {
-    if (usersDB[username]) {
-        usersDB[username].coins = data.coins;
-        usersDB[username].xp = data.xp;
-        usersDB[username].inventory = data.inventory;
-        usersDB[username].selectedAvatar = data.selectedAvatar;
-        usersDB[username].selectedAbility = data.selectedAbility;
+async function saveUserData(username, data) {
+    try {
+        await promisePool.query(
+            'UPDATE users SET coins = ?, xp = ?, inventory = ?, selectedAvatar = ?, selectedAbility = ? WHERE username = ?',
+            [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, username]
+        );
+    } catch (err) {
+        console.error('Error saving user data:', err);
     }
 }
 
@@ -195,7 +246,6 @@ io.on('connection', (socket) => {
         setTimeout(() => {
             const activeGlobal = getGlobalCellId(room.activePlayerIndex, activePlayer.position);
             
-            // Collision detection based on global board position
             const collision = room.players.find((p, idx) => {
                 if (p.id === activePlayer.id || p.position === -1) return false;
                 const pGlobal = getGlobalCellId(idx, p.position);
