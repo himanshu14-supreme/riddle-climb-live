@@ -9,7 +9,6 @@
 </head>
 <body>
 
-<!-- PAGE 1: AUTH PAGE -->
 <div id="page-auth" class="page active">
     <div class="auth-container">
         <div class="auth-header">
@@ -65,7 +64,6 @@
     </div>
 </div>
 
-<!-- PAGE 2: LOBBY -->
 <div id="page-lobby" class="page">
     <div class="header-bar">
         <button class="back-btn" onclick="goBack()">←</button>
@@ -110,7 +108,6 @@
     </div>
 </div>
 
-<!-- PAGE 3: SHOP -->
 <div id="page-shop" class="page">
     <div class="header-bar">
         <button class="back-btn" onclick="goBack()">←</button>
@@ -126,7 +123,6 @@
     </div>
 </div>
 
-<!-- PAGE 4: VAULT -->
 <div id="page-vault" class="page">
     <div class="header-bar">
         <button class="back-btn" onclick="goBack()">←</button>
@@ -139,7 +135,6 @@
     </div>
 </div>
 
-<!-- PAGE 5: RULES -->
 <div id="page-rules" class="page">
     <div class="header-bar">
         <button class="back-btn" onclick="goBack()">←</button>
@@ -175,7 +170,6 @@
     </div>
 </div>
 
-<!-- PAGE 6: CREATE ROOM -->
 <div id="page-create-room" class="page">
     <div class="header-bar">
         <button class="back-btn" onclick="goBack()">←</button>
@@ -200,7 +194,6 @@
     </div>
 </div>
 
-<!-- PAGE 7: JOIN ROOM -->
 <div id="page-join-room" class="page">
     <div class="header-bar">
         <button class="back-btn" onclick="goBack()">←</button>
@@ -225,7 +218,6 @@
     </div>
 </div>
 
-<!-- PAGE 8: WAITING ROOM -->
 <div id="page-waiting" class="page">
     <div class="header-bar">
         <button class="back-btn" onclick="handleLeaveRoom()">←</button>
@@ -257,7 +249,6 @@
     </div>
 </div>
 
-<!-- PAGE 9: GAME BOARD -->
 <div id="page-game" class="page">
     <div class="header-bar">
         <button class="back-btn" onclick="handleLeaveGame()">←</button>
@@ -273,7 +264,62 @@
 
         <div class="board-section">
             <div id="ludo-board-container" class="ludo-board-container">
-                <div id="ludo-board" class="ludo-board"></div>
+                <div id="ludo-board" class="ludo-board">
+                    
+                    <div class="yard bg-red">
+                        <div class="yard-box" id="cell-1-1"></div>
+                    </div>
+
+                    <div class="path vertical">
+                        <div class="cell" id="cell-0-51"></div> <div class="cell"></div> <div class="cell" id="cell-0-50"></div>
+                        <div class="cell" id="cell-0-0"></div> <div class="cell bg-green"></div> <div class="cell" id="cell-0-49"></div>
+                        <div class="cell" id="cell-0-1"></div> <div class="cell bg-green"></div> <div class="cell" id="cell-0-48"></div>
+                        <div class="cell" id="cell-0-2"></div> <div class="cell bg-green"></div> <div class="cell" id="cell-0-47"></div>
+                        <div class="cell" id="cell-0-3"></div> <div class="cell bg-green"></div> <div class="cell" id="cell-0-46"></div>
+                        <div class="cell" id="cell-0-4"></div> <div class="cell bg-green"></div> <div class="cell" id="cell-0-45"></div>
+                    </div>
+
+                    <div class="yard bg-green">
+                        <div class="yard-box" id="cell-1-13"></div>
+                    </div>
+
+                    <div class="path horizontal">
+                        <div class="cell" id="cell-0-11"></div> <div class="cell" id="cell-0-10"></div> <div class="cell" id="cell-0-9"></div> <div class="cell" id="cell-0-8"></div> <div class="cell safe" id="cell-0-7">★</div> <div class="cell" id="cell-0-6"></div>
+                        <div class="cell" id="cell-0-12"></div> <div class="cell bg-red" id="cell-0-52"></div> <div class="cell bg-red" id="cell-0-53"></div> <div class="cell bg-red" id="cell-0-54"></div> <div class="cell bg-red" id="cell-0-55"></div> <div class="cell bg-red"></div>
+                        <div class="cell" id="cell-0-13"></div> <div class="cell" id="cell-0-14"></div> <div class="cell" id="cell-0-15"></div> <div class="cell" id="cell-0-16"></div> <div class="cell safe" id="cell-0-17">★</div> <div class="cell" id="cell-0-18"></div>
+                    </div>
+
+                    <div class="center-home">
+                        <div class="home-part home-red"></div>
+                        <div class="home-part home-green"></div>
+                        <div class="home-part home-yellow"></div>
+                        <div class="home-part home-blue"></div>
+                    </div>
+
+                    <div class="path horizontal">
+                        <div class="cell" id="cell-0-44"></div> <div class="cell safe" id="cell-0-43">★</div> <div class="cell" id="cell-0-42"></div> <div class="cell" id="cell-0-41"></div> <div class="cell" id="cell-0-40"></div> <div class="cell" id="cell-0-39"></div>
+                        <div class="cell bg-yellow"></div> <div class="cell bg-yellow"></div> <div class="cell bg-yellow"></div> <div class="cell bg-yellow"></div> <div class="cell bg-yellow"></div> <div class="cell" id="cell-0-38"></div>
+                        <div class="cell" id="cell-0-32"></div> <div class="cell" id="cell-0-33"></div> <div class="cell" id="cell-0-34"></div> <div class="cell" id="cell-0-35"></div> <div class="cell safe" id="cell-0-36">★</div> <div class="cell" id="cell-0-37"></div>
+                    </div>
+
+                    <div class="yard bg-yellow">
+                        <div class="yard-box" id="cell-13-1"></div>
+                    </div>
+
+                    <div class="path vertical">
+                        <div class="cell" id="cell-0-19"></div> <div class="cell bg-blue"></div> <div class="cell" id="cell-0-31"></div>
+                        <div class="cell" id="cell-0-20"></div> <div class="cell bg-blue"></div> <div class="cell" id="cell-0-30"></div>
+                        <div class="cell" id="cell-0-21"></div> <div class="cell bg-blue"></div> <div class="cell" id="cell-0-29"></div>
+                        <div class="cell" id="cell-0-22"></div> <div class="cell bg-blue"></div> <div class="cell" id="cell-0-28"></div>
+                        <div class="cell safe" id="cell-0-23">★</div> <div class="cell bg-blue"></div> <div class="cell safe" id="cell-0-27">★</div>
+                        <div class="cell" id="cell-0-24"></div> <div class="cell" id="cell-0-25"></div> <div class="cell" id="cell-0-26"></div>
+                    </div>
+
+                    <div class="yard bg-blue">
+                        <div class="yard-box" id="cell-13-13"></div>
+                    </div>
+
+                </div>
             </div>
         </div>
 
@@ -302,7 +348,6 @@
     </div>
 </div>
 
-<!-- PAGE 10: DUEL MODAL -->
 <div id="duel-overlay" class="overlay hidden">
     <div class="duel-modal">
         <h2>⚔️ BATTLE INITIATED!</h2>
@@ -316,7 +361,6 @@
     </div>
 </div>
 
-<!-- TOAST NOTIFICATIONS -->
 <div id="toast-container" class="toast-container"></div>
 
 <script src="/socket.io/socket.io.js"></script>
