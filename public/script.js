@@ -9,7 +9,6 @@ const SHOP_ITEMS = [
     { id: 'ability_shield', name: 'Riddle Shield', icon: '🔰', type: 'ability', price: 400, desc: 'Block one stun.' }
 ];
 
-// LUDO PATH (52 squares)
 const LUDO_PATH = [
     {r:0, c:6}, {r:1, c:6}, {r:2, c:6}, {r:3, c:6}, {r:4, c:6}, {r:5, c:6}, {r:6, c:6},
     {r:6, c:5}, {r:6, c:4}, {r:6, c:3}, {r:6, c:2}, {r:6, c:1}, {r:6, c:0},
@@ -40,9 +39,15 @@ let myId = null;
 let gameState = { players: [], gameStarted: false };
 
 function goToPage(pageName) {
+    console.log('📍 Going to page:', pageName);
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const page = document.getElementById(`page-${pageName}`);
-    if (page) page.classList.add('active');
+    if (page) {
+        page.classList.add('active');
+        console.log('✅ Page active:', pageName);
+    } else {
+        console.error('❌ Page not found:', pageName);
+    }
     
     if (pageName === 'shop') renderShop();
     if (pageName === 'vault') renderVault();
@@ -237,7 +242,20 @@ function equipItem(id, type) {
 
 function handleCreateRoom() {
     const roomName = document.getElementById('room-name').value.trim();
+    console.log('📍 Create room button clicked');
+    console.log('📍 Room name:', roomName);
+    console.log('📍 Socket connected?', socket.connected);
+    console.log('📍 Socket ID:', socket.id);
+    
+    if (!socket.connected) {
+        console.error('❌ Socket not connected!');
+        showToast('❌ Not connected to server!');
+        return;
+    }
+    
+    console.log('📍 Emitting createRoom event...');
     socket.emit('createRoom', { name: roomName });
+    console.log('✅ createRoom event emitted');
 }
 
 function handleJoinRoom() {
@@ -265,6 +283,7 @@ function handleLeaveGame() {
 }
 
 socket.on('roomCreated', (data) => {
+    console.log('✅ ROOM CREATED event received:', data);
     currentRoomId = data.roomId;
     isHost = true;
     myId = socket.id;
@@ -277,6 +296,7 @@ socket.on('roomCreated', (data) => {
 });
 
 socket.on('roomJoined', (data) => {
+    console.log('✅ ROOM JOINED event received:', data);
     currentRoomId = data.roomId;
     isHost = data.isHost;
     myId = socket.id;
@@ -291,6 +311,7 @@ socket.on('roomJoined', (data) => {
 });
 
 socket.on('updatePlayers', (players) => {
+    console.log('📍 updatePlayers received:', players);
     gameState.players = players;
     const list = document.getElementById('waiting-players-list');
     if (list) {
@@ -309,30 +330,29 @@ socket.on('updatePlayers', (players) => {
 
 function handleStartGame() {
     if (isHost) {
+        console.log('📍 Starting game in room:', currentRoomId);
         socket.emit('startGame', currentRoomId);
     }
 }
 
 socket.on('gameStarted', () => {
+    console.log('🎮 Game started!');
     buildLudoBoard();
     goToPage('game');
     document.getElementById('roll-btn').disabled = false;
     showToast('🎮 Game Started!');
 });
 
-// ==================== PROFESSIONAL LUDO BOARD ====================
 function buildLudoBoard() {
     const board = document.getElementById('ludo-board');
     if (!board) return;
     board.innerHTML = '';
     
-    // HOME YARDS
     createHomeYard(board, 'red', 1, 7, 1, 7);
     createHomeYard(board, 'green', 10, 16, 1, 7);
     createHomeYard(board, 'yellow', 10, 16, 10, 16);
     createHomeYard(board, 'blue', 1, 7, 10, 16);
     
-    // MAIN PATH
     LUDO_PATH.forEach((pos, idx) => {
         const cell = document.createElement('div');
         cell.className = `path path-${idx}`;
@@ -350,13 +370,11 @@ function buildLudoBoard() {
         board.appendChild(cell);
     });
     
-    // HOME STRETCHES
     createHomeStretch(board, 'red', 5);
     createHomeStretch(board, 'green', 5);
     createHomeStretch(board, 'yellow', 5);
     createHomeStretch(board, 'blue', 5);
     
-    // CENTER HOME
     const center = document.createElement('div');
     center.className = 'center-home';
     for (let i = 0; i < 4; i++) {
@@ -517,9 +535,14 @@ function showToast(msg) {
 }
 
 socket.on('connect', () => {
-    console.log('✅ Connected to server');
+    console.log('✅ Socket connected:', socket.id);
 });
 
 socket.on('disconnect', () => {
-    console.log('❌ Disconnected from server');
+    console.log('❌ Socket disconnected');
+});
+
+socket.on('error', (error) => {
+    console.error('❌ Socket error:', error);
+    showToast('Connection error');
 });
