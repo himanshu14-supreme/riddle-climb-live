@@ -37,16 +37,13 @@ let currentRoomId = null;
 let isHost = false;
 let myId = null;
 let gameState = { players: [], gameStarted: false };
+let myValidMoves = []; // Store which tokens can be moved currently
 
 function goToPage(pageName) {
-    console.log('📍 Going to page:', pageName);
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const page = document.getElementById(`page-${pageName}`);
     if (page) {
         page.classList.add('active');
-        console.log('✅ Page active:', pageName);
-    } else {
-        console.error('❌ Page not found:', pageName);
     }
     
     if (pageName === 'shop') renderShop();
@@ -242,31 +239,20 @@ function equipItem(id, type) {
 
 function handleCreateRoom() {
     const roomName = document.getElementById('room-name').value.trim();
-    console.log('📍 Create room button clicked');
-    console.log('📍 Room name:', roomName);
-    console.log('📍 Socket connected?', socket.connected);
-    console.log('📍 Socket ID:', socket.id);
-    
     if (!socket.connected) {
-        console.error('❌ Socket not connected!');
         showToast('❌ Not connected to server!');
         return;
     }
-    
-    console.log('📍 Emitting createRoom event...');
     socket.emit('createRoom', { name: roomName });
-    console.log('✅ createRoom event emitted');
 }
 
 function handleJoinRoom() {
     const code = document.getElementById('join-code').value.trim().toUpperCase();
     const msgEl = document.getElementById('join-message');
-    
     if (!code) {
         if (msgEl) msgEl.innerText = 'Please enter a room code';
         return;
     }
-    
     socket.emit('joinRoom', code);
 }
 
@@ -283,7 +269,6 @@ function handleLeaveGame() {
 }
 
 socket.on('roomCreated', (data) => {
-    console.log('✅ ROOM CREATED event received:', data);
     currentRoomId = data.roomId;
     isHost = true;
     myId = socket.id;
@@ -296,7 +281,6 @@ socket.on('roomCreated', (data) => {
 });
 
 socket.on('roomJoined', (data) => {
-    console.log('✅ ROOM JOINED event received:', data);
     currentRoomId = data.roomId;
     isHost = data.isHost;
     myId = socket.id;
@@ -311,7 +295,6 @@ socket.on('roomJoined', (data) => {
 });
 
 socket.on('updatePlayers', (players) => {
-    console.log('📍 updatePlayers received:', players);
     gameState.players = players;
     const list = document.getElementById('waiting-players-list');
     if (list) {
@@ -324,122 +307,90 @@ socket.on('updatePlayers', (players) => {
             </div>
         `).join('');
     }
+    
+    const gameList = document.getElementById('game-players-list');
+    if (gameList) {
+        const colorNames = ['Red', 'Green', 'Yellow', 'Blue'];
+        const hexColors = ['#dc2626', '#059669', '#ca8a04', '#1d4ed8'];
+        gameList.innerHTML = players.map((p, idx) => `
+            <div class="player-item" style="border-left: 4px solid ${hexColors[idx % 4]}">
+                <div class="player-name">
+                    <span class="player-avatar-small">${SHOP_ITEMS.find(sh => sh.id === p.selectedAvatar)?.icon || '👤'}</span>
+                    <span>${p.name} ${p.stunned ? '😵' : ''}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+    
     const count = document.getElementById('player-count');
     if (count) count.innerText = players.length;
 });
 
 function handleStartGame() {
     if (isHost) {
-        console.log('📍 Starting game in room:', currentRoomId);
         socket.emit('startGame', currentRoomId);
     }
 }
 
 socket.on('gameStarted', () => {
-    console.log('🎮 Game started!');
-    buildLudoBoard();
     goToPage('game');
     document.getElementById('roll-btn').disabled = false;
     showToast('🎮 Game Started!');
 });
 
-function buildLudoBoard() {
-    const board = document.getElementById('ludo-board');
-    if (!board) return;
-    board.innerHTML = '';
-    
-    createHomeYard(board, 'red', 1, 7, 1, 7);
-    createHomeYard(board, 'green', 10, 16, 1, 7);
-    createHomeYard(board, 'yellow', 10, 16, 10, 16);
-    createHomeYard(board, 'blue', 1, 7, 10, 16);
-    
-    LUDO_PATH.forEach((pos, idx) => {
-        const cell = document.createElement('div');
-        cell.className = `path path-${idx}`;
-        
-        const innerCell = document.createElement('div');
-        innerCell.className = 'cell';
-        innerCell.id = `cell-${idx}`;
-        
-        if (SAFE_ZONES.includes(idx)) {
-            innerCell.classList.add('safe');
-            innerCell.innerHTML = '★';
-        }
-        
-        cell.appendChild(innerCell);
-        board.appendChild(cell);
-    });
-    
-    createHomeStretch(board, 'red', 5);
-    createHomeStretch(board, 'green', 5);
-    createHomeStretch(board, 'yellow', 5);
-    createHomeStretch(board, 'blue', 5);
-    
-    const center = document.createElement('div');
-    center.className = 'center-home';
-    for (let i = 0; i < 4; i++) {
-        const part = document.createElement('div');
-        part.className = `home-part home-${['red', 'green', 'yellow', 'blue'][i]}`;
-        center.appendChild(part);
-    }
-    board.appendChild(center);
-}
-
-function createHomeYard(board, color, colStart, colEnd, rowStart, rowEnd) {
-    const yard = document.createElement('div');
-    yard.className = `yard yard-${color}`;
-    yard.style.gridColumn = `${colStart} / ${colEnd}`;
-    yard.style.gridRow = `${rowStart} / ${rowEnd}`;
-    
-    const yardBox = document.createElement('div');
-    yardBox.className = 'yard-box';
-    yardBox.id = `${color}-base`;
-    
-    for (let i = 0; i < 4; i++) {
-        const slot = document.createElement('div');
-        slot.className = `yard-slot yard-slot-${color}`;
-        yardBox.appendChild(slot);
-    }
-    
-    yard.appendChild(yardBox);
-    board.appendChild(yard);
-}
-
-function createHomeStretch(board, color, count) {
-    for (let i = 0; i < count; i++) {
-        const cell = document.createElement('div');
-        cell.className = `path home-stretch-${color}-${i}`;
-        
-        const innerCell = document.createElement('div');
-        innerCell.className = `cell bg-${color}`;
-        innerCell.id = `${color}-home-${i}`;
-        
-        cell.appendChild(innerCell);
-        board.appendChild(cell);
-    }
-}
-
 function updateBoardTokens(players) {
     document.querySelectorAll('.token').forEach(t => t.remove());
-    const playerColors = ['#dc2626', '#ca8a04', '#1d4ed8', '#059669'];
     
-    players.forEach((player, idx) => {
-        const token = document.createElement('div');
-        token.className = `token ${player.stunned ? 'stunned' : ''}`;
-        token.style.backgroundColor = playerColors[idx % 4];
-        token.innerHTML = '👤';
+    const colorNames = ['red', 'green', 'yellow', 'blue'];
+    const hexColors = ['#dc2626', '#059669', '#ca8a04', '#1d4ed8'];
+    const startOffsets = [0, 13, 26, 39]; // Essential for plotting absolute board cell
+    
+    players.forEach((player, pIdx) => {
+        const colorName = colorNames[pIdx % 4];
+        const hexColor = hexColors[pIdx % 4];
         
-        let targetCell;
-        
-        if (player.position === -1) {
-            targetCell = document.getElementById(`${['red', 'green', 'yellow', 'blue'][idx]}-base`);
-        } else if (player.position >= LUDO_PATH.length) {
-            targetCell = document.querySelector('.center-home');
-        } else if (player.position < LUDO_PATH.length) {
-            targetCell = document.getElementById(`cell-${player.position}`);
-        }
-        
-        if (targetCell) targetCell.appendChild(token);
+        player.tokens.forEach((token, tIdx) => {
+            const tokenEl = document.createElement('div');
+            tokenEl.className = `token`;
+            tokenEl.style.backgroundColor = hexColor;
+            tokenEl.innerHTML = SHOP_ITEMS.find(sh => sh.id === player.selectedAvatar)?.icon || '👤';
+            
+            // If the player is stunned, add a visual grayscale effect
+            if (player.stunned) {
+                tokenEl.classList.add('stunned');
+            }
+
+            // Highlighting movable tokens 
+            if (player.id === myId && myValidMoves.includes(tIdx)) {
+                tokenEl.classList.add('valid-move');
+                tokenEl.onclick = () => {
+                    // Send move event, clear local valid moves
+                    socket.emit('moveToken', { roomId: currentRoomId, tokenIdx: tIdx });
+                    myValidMoves = [];
+                    updateBoardTokens(gameState.players); 
+                };
+            }
+            
+            let targetCell;
+            
+            if (token.progress === -1) {
+                // In base
+                const slots = document.querySelectorAll(`#${colorName}-base .yard-slot`);
+                targetCell = slots[tIdx];
+            } else if (token.progress >= 0 && token.progress <= 50) {
+                // Main path (0 to 50 relative progress maps to 0 to 51 absolute id)
+                const absPos = (startOffsets[pIdx % 4] + token.progress) % 52;
+                targetCell = document.getElementById(`cell-${absPos}`);
+            } else if (token.progress >= 51 && token.progress <= 55) {
+                // Home stretch
+                targetCell = document.getElementById(`${colorName}-home-${token.progress - 51}`);
+            } else if (token.progress === 56) {
+                // Reached center
+                targetCell = document.querySelector(`.home-${colorName}`);
+            }
+            
+            if (targetCell) targetCell.appendChild(tokenEl);
+        });
     });
 }
 
@@ -469,14 +420,30 @@ function animateDice(result) {
 
 socket.on('diceRolled', (data) => {
     animateDice(data.roll);
-    updateBoardTokens(data.players);
+    setTimeout(() => {
+        gameState.players = data.players;
+        myValidMoves = data.validMoves || [];
+        updateBoardTokens(data.players);
+        
+        if(myValidMoves.length > 0) {
+            showToast("Tap a glowing token to move!");
+        }
+    }, 1000);
+});
+
+socket.on('boardUpdated', (data) => {
     gameState.players = data.players;
+    myValidMoves = [];
+    updateBoardTokens(data.players);
 });
 
 socket.on('turnUpdate', (data) => {
     const isMyTurn = data.activePlayerId === myId;
     const info = document.getElementById('turn-info');
-    if (info) info.innerText = isMyTurn ? '⚡ Your Turn!' : `${data.activePlayerName}'s Turn`;
+    let turnText = isMyTurn ? '⚡ Your Turn!' : `${data.activePlayerName}'s Turn`;
+    if (data.msg) turnText += ` - ${data.msg}`;
+    
+    if (info) info.innerText = turnText;
     const btn = document.getElementById('roll-btn');
     if (btn) btn.disabled = !isMyTurn;
 });
@@ -515,8 +482,8 @@ socket.on('duelEnded', (data) => {
     const overlay = document.getElementById('duel-overlay');
     if (overlay) overlay.classList.add('hidden');
     showToast(data.msg);
-    updateBoardTokens(data.players);
     gameState.players = data.players;
+    updateBoardTokens(data.players);
 });
 
 socket.on('gameEnded', (data) => {
@@ -534,15 +501,6 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 4000);
 }
 
-socket.on('connect', () => {
-    console.log('✅ Socket connected:', socket.id);
-});
-
-socket.on('disconnect', () => {
-    console.log('❌ Socket disconnected');
-});
-
-socket.on('error', (error) => {
-    console.error('❌ Socket error:', error);
-    showToast('Connection error');
-});
+socket.on('connect', () => { console.log('✅ Socket connected:', socket.id); });
+socket.on('disconnect', () => { console.log('❌ Socket disconnected'); });
+socket.on('error', (error) => { showToast('Connection error'); });
