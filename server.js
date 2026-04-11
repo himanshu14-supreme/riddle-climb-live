@@ -113,8 +113,8 @@ io.on('connection', (socket) => {
                 (err) => {
                     if (err) return socket.emit('auth_error', 'Registration failed');
                     socket.username = user;
-                    userSessions[socket.id] = { username: user, coins: 600, xp: 0 };
-                    socket.emit('auth_success', { username: user, coins: 600, xp: 0, inventory: ['avatar_default', 'ability_none'], selectedAvatar: 'avatar_default', selectedAbility: 'ability_none' });
+                    userSessions[socket.id] = { username: user, coins: 600, xp: 0, inventory: ['avatar_default', 'ability_none'], selectedAvatar: 'avatar_default', selectedAbility: 'ability_none' };
+                    socket.emit('auth_success', userSessions[socket.id]);
                 }
             );
         });
@@ -131,21 +131,48 @@ io.on('connection', (socket) => {
             let inventory = ['avatar_default', 'ability_none'];
             try { if (u.inventory) inventory = JSON.parse(u.inventory); } catch (e) {}
             
-            userSessions[socket.id] = { username: u.username, coins: u.coins || 600, xp: u.xp || 0, inventory: inventory, selectedAvatar: u.selectedAvatar || 'avatar_default', selectedAbility: u.selectedAbility || 'ability_none' };
+            userSessions[socket.id] = { 
+                username: u.username, 
+                coins: u.coins || 600, 
+                xp: u.xp || 0, 
+                inventory: inventory, 
+                selectedAvatar: u.selectedAvatar || 'avatar_default', 
+                selectedAbility: u.selectedAbility || 'ability_none' 
+            };
             socket.emit('auth_success', userSessions[socket.id]);
         });
     });
 
     socket.on('save_data', (data) => {
         if (!socket.username) return;
+        
+        // Update live session to avoid bugs when joining rooms after equipping
+        if (userSessions[socket.id]) {
+            userSessions[socket.id].coins = data.coins;
+            userSessions[socket.id].xp = data.xp;
+            userSessions[socket.id].inventory = data.inventory;
+            userSessions[socket.id].selectedAvatar = data.selectedAvatar;
+            userSessions[socket.id].selectedAbility = data.selectedAbility;
+        }
+
         db.query(
             'UPDATE users SET coins = ?, xp = ?, inventory = ?, selectedAvatar = ?, selectedAbility = ? WHERE username = ?',
             [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, socket.username]
         );
     });
 
+    // Leaderboard fetch
+    socket.on('getLeaderboard', () => {
+        db.query('SELECT username, xp FROM users ORDER BY xp DESC LIMIT 10', (err, results) => {
+            if (!err) {
+                socket.emit('leaderboardData', results);
+            }
+        });
+    });
+
     socket.on('createRoom', (data) => {
         const roomId = generateRoomCode();
+        const session = userSessions[socket.id] || {};
         rooms[roomId] = {
             id: roomId,
             name: data.name || 'Game Room',
@@ -153,11 +180,10 @@ io.on('connection', (socket) => {
             players: [{
                 id: socket.id,
                 name: socket.username || `Guest_${Math.floor(Math.random() * 9999)}`,
-                // Standard 4 tokens initialized to progress -1 (Base)
                 tokens: [{progress: -1}, {progress: -1}, {progress: -1}, {progress: -1}],
                 stunned: false,
-                selectedAvatar: 'avatar_default',
-                selectedAbility: 'ability_none'
+                selectedAvatar: session.selectedAvatar || 'avatar_default',
+                selectedAbility: session.selectedAbility || 'ability_none'
             }],
             state: 'LOBBY',
             currentTurnIndex: 0,
@@ -177,13 +203,14 @@ io.on('connection', (socket) => {
         if (rooms[roomId].state !== 'LOBBY') return socket.emit('auth_error', 'Game already started');
         if (rooms[roomId].players.length >= 4) return socket.emit('auth_error', 'Room is full');
         
+        const session = userSessions[socket.id] || {};
         rooms[roomId].players.push({
             id: socket.id,
             name: socket.username || `Guest_${Math.floor(Math.random() * 9999)}`,
             tokens: [{progress: -1}, {progress: -1}, {progress: -1}, {progress: -1}],
             stunned: false,
-            selectedAvatar: 'avatar_default',
-            selectedAbility: 'ability_none'
+            selectedAvatar: session.selectedAvatar || 'avatar_default',
+            selectedAbility: session.selectedAbility || 'ability_none'
         });
         socket.join(roomId);
         socketToRoom[socket.id] = roomId;
@@ -204,7 +231,6 @@ io.on('connection', (socket) => {
         }, 500);
     });
 
-    // ------------------ NEW GAMEPLAY LOOP (ROLL -> SELECT -> MOVE) ------------------
     socket.on('rollDice', (roomId) => {
         const room = rooms[roomId];
         if (!room || room.state !== 'PLAYING') return;
@@ -213,10 +239,19 @@ io.on('connection', (socket) => {
         const currentPlayer = room.players[currentPlayerIdx];
         if (currentPlayer.id !== socket.id) return;
         
-        const roll = Math.floor(Math.random() * 6) + 1;
+        let roll = Math.floor(Math.random() * 6) + 1;
+
+        // Apply Abilities
+        if (currentPlayer.selectedAbility === 'ability_lucky' && roll === 1) {
+            roll = 2; // Lucky Dice prevents 1s
+        }
+        if (currentPlayer.selectedAbility === 'ability_haste') {
+            roll += 1; // Boots of Haste adds +1 to every roll
+        }
+
         room.currentRoll = roll;
         
-        // Stun Check (Loses turn entirely)
+        // Stun Check
         if (currentPlayer.stunned) {
             currentPlayer.stunned = false;
             io.to(roomId).emit('diceRolled', { roll, validMoves: [], players: room.players });
@@ -225,11 +260,11 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // Calculate valid tokens to move
         let validMoves = [];
         currentPlayer.tokens.forEach((t, idx) => {
-            if (t.progress === -1 && roll === 6) validMoves.push(idx); // Need a 6 to escape base
-            else if (t.progress >= 0 && t.progress + roll <= 56) validMoves.push(idx); // Cannot exceed max path
+            // Because Haste can make roll > 6, we still count it as unlocking a base token if it's 6 or 7
+            if (t.progress === -1 && roll >= 6) validMoves.push(idx); 
+            else if (t.progress >= 0 && t.progress + roll <= 56) validMoves.push(idx); 
         });
         
         if (validMoves.length === 0) {
@@ -255,9 +290,9 @@ io.on('connection', (socket) => {
         const roll = room.currentRoll;
         
         if (token.progress === -1) {
-            token.progress = 0; // Move onto starting tile
+            token.progress = 0; 
         } else {
-            token.progress += roll; // Move along path
+            token.progress += roll; 
         }
         
         room.state = 'PLAYING';
@@ -267,6 +302,12 @@ io.on('connection', (socket) => {
         if (hasWon) {
             io.to(roomId).emit('boardUpdated', { players: room.players });
             io.to(roomId).emit('gameEnded', { msg: `👑 ${currentPlayer.name} WON THE GAME!` });
+            
+            // Add rewards
+            if (currentPlayer.name && !currentPlayer.name.startsWith('Guest')) {
+                db.query('UPDATE users SET xp = xp + 200, coins = coins + 100 WHERE username = ?', [currentPlayer.name]);
+            }
+            
             delete rooms[roomId];
             return;
         }
@@ -296,9 +337,8 @@ io.on('connection', (socket) => {
             startDuel(roomId, currentPlayer, tokenIdx, duelDefender, defenderTokenIdx);
         } else {
             io.to(roomId).emit('boardUpdated', { players: room.players });
-            if (roll === 6) {
-                // Rolled 6? Another turn!
-                io.to(roomId).emit('turnUpdate', { activePlayerId: currentPlayer.id, activePlayerName: currentPlayer.name, msg: "Rolled a 6! Roll again." });
+            if (roll >= 6) {
+                io.to(roomId).emit('turnUpdate', { activePlayerId: currentPlayer.id, activePlayerName: currentPlayer.name, msg: "Rolled a 6+! Roll again." });
             } else {
                 nextTurn(roomId);
             }
@@ -355,9 +395,18 @@ io.on('connection', (socket) => {
             msg = `⚔️ ${defender.name} wins by default!`;
         }
         
-        // Apply punishments
-        loser.stunned = true; // Player loses next turn
-        loser.tokens[loserTokenIdx].progress = -1; // Specific Token sent to base
+        // Reward Winner
+        if (winner.name && !winner.name.startsWith('Guest')) {
+            db.query('UPDATE users SET xp = xp + 50, coins = coins + 20 WHERE username = ?', [winner.name]);
+        }
+
+        // Apply Punishments to Loser & Check for Shield Ability
+        if (loser.selectedAbility !== 'ability_shield') {
+            loser.stunned = true; // Player loses next turn if they don't have shield
+        } else {
+            msg += ` (Shield protected ${loser.name} from stun!)`;
+        }
+        loser.tokens[loserTokenIdx].progress = -1; // Token still sent to base
         
         io.to(roomId).emit('duelEnded', { msg: msg, players: room.players });
         
