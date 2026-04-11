@@ -131,7 +131,6 @@ io.on('connection', (socket) => {
             const u = results[0];
             socket.username = u.username;
             
-            // FIX: Safely parse inventory
             let inventory = ['avatar_default', 'ability_none'];
             try { 
                 if (u.inventory) {
@@ -152,7 +151,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('save_data', (data) => {
-        // FIX: Ensure username is available even if socket reconnects
         const uname = socket.username || data.username;
         if (!uname) return;
         
@@ -164,7 +162,6 @@ io.on('connection', (socket) => {
             userSessions[socket.id].selectedAbility = data.selectedAbility;
         }
 
-        // FIX: Ensure inventory is safely converted to string for database storage
         const invString = Array.isArray(data.inventory) ? JSON.stringify(data.inventory) : data.inventory;
 
         db.query(
@@ -357,7 +354,13 @@ io.on('connection', (socket) => {
 
     function nextTurn(roomId) {
         const room = rooms[roomId];
-        if (!room) return;
+        if (!room || room.players.length === 0) return;
+        
+        // Safeguard against out of bounds index
+        if (room.currentTurnIndex >= room.players.length) {
+            room.currentTurnIndex = 0;
+        }
+        
         room.currentTurnIndex = (room.currentTurnIndex + 1) % room.players.length;
         const nextPlayer = room.players[room.currentTurnIndex];
         io.to(roomId).emit('turnUpdate', { activePlayerId: nextPlayer.id, activePlayerName: nextPlayer.name });
@@ -376,7 +379,7 @@ io.on('connection', (socket) => {
 
     socket.on('submitDuelAnswer', (data) => {
         const room = rooms[data.roomId];
-        if (!room || room.state !== 'DUEL') return;
+        if (!room || room.state !== 'DUEL' || !room.duel) return;
         room.duel.answers[socket.id] = data.answer;
         if (Object.keys(room.duel.answers).length === 2) resolveDuel(data.roomId, 'answered');
     });
@@ -405,21 +408,26 @@ io.on('connection', (socket) => {
             msg = `⚔️ ${defender.name} wins by default!`;
         }
         
-        if (winner.name && !winner.name.startsWith('Guest')) {
+        // Ensure winner/loser still exist in the room before updating DB
+        if (winner && winner.name && !winner.name.startsWith('Guest')) {
             db.query('UPDATE users SET xp = xp + 50, coins = coins + 20 WHERE username = ?', [winner.name]);
-            if (winner.selectedAbility === 'ability_fortune' && loser.name && !loser.name.startsWith('Guest')) {
+            if (winner.selectedAbility === 'ability_fortune' && loser && loser.name && !loser.name.startsWith('Guest')) {
                 db.query('UPDATE users SET coins = GREATEST(0, coins - 50) WHERE username = ?', [loser.name]);
                 db.query('UPDATE users SET coins = coins + 50 WHERE username = ?', [winner.name]);
                 msg += ` (Stole 50 coins!)`;
             }
         }
 
-        if (loser.selectedAbility !== 'ability_shield') {
-            loser.stunned = true; 
-        } else {
-            msg += ` (Shield protected ${loser.name} from stun!)`;
+        if (loser) {
+            if (loser.selectedAbility !== 'ability_shield') {
+                loser.stunned = true; 
+            } else {
+                msg += ` (Shield protected ${loser.name} from stun!)`;
+            }
+            if (loser.tokens && loser.tokens[loserTokenIdx]) {
+                loser.tokens[loserTokenIdx].progress = -1; 
+            }
         }
-        loser.tokens[loserTokenIdx].progress = -1; 
         
         io.to(roomId).emit('duelEnded', { msg: msg, players: room.players });
         room.state = 'PLAYING';
@@ -437,12 +445,42 @@ io.on('connection', (socket) => {
     });
 
     function leaveRoomHandler(roomId, socket) {
-        if (rooms[roomId]) {
-            rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-            if (rooms[roomId].players.length === 0) {
-                delete rooms[roomId];
-            } else {
-                io.to(roomId).emit('updatePlayers', rooms[roomId].players);
+        const room = rooms[roomId];
+        if (room) {
+            const pIdx = room.players.findIndex(p => p.id === socket.id);
+            if (pIdx !== -1) {
+                room.players.splice(pIdx, 1);
+                
+                if (room.players.length === 0) {
+                    delete rooms[roomId];
+                } else {
+                    // FIX: Automatically adjust turns so the game doesn't freeze
+                    if (room.state === 'PLAYING' || room.state === 'WAITING_FOR_MOVE') {
+                        if (pIdx < room.currentTurnIndex) {
+                            room.currentTurnIndex--; 
+                        } else if (pIdx === room.currentTurnIndex) {
+                            if (room.currentTurnIndex >= room.players.length) {
+                                room.currentTurnIndex = 0;
+                            }
+                            room.state = 'PLAYING'; 
+                            const nextPlayer = room.players[room.currentTurnIndex];
+                            io.to(roomId).emit('turnUpdate', { activePlayerId: nextPlayer.id, activePlayerName: nextPlayer.name, msg: "A player fled! Next turn." });
+                        }
+                    }
+                    
+                    // FIX: Cancel duels if someone disconnects so it doesn't wait forever
+                    if (room.state === 'DUEL' && room.duel) {
+                        if (room.duel.attacker.id === socket.id || room.duel.defender.id === socket.id) {
+                            room.state = 'PLAYING';
+                            room.duel = null;
+                            io.to(roomId).emit('duelEnded', { msg: `⚔️ Duel cancelled! A player disconnected.`, players: room.players });
+                            setTimeout(() => { if (rooms[roomId]) nextTurn(roomId); }, 2000);
+                        }
+                    }
+                    
+                    io.to(roomId).emit('updatePlayers', room.players);
+                    io.to(roomId).emit('boardUpdated', { players: room.players });
+                }
             }
         }
         socket.leave(roomId);
