@@ -43,6 +43,7 @@ let isHost = false;
 let myId = null;
 let gameState = { players: [], gameStarted: false };
 let myValidMoves = [];
+let duelTimerInterval = null; // FIX: Global variable to prevent duplicate timers
 
 function goToPage(pageName) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -108,7 +109,6 @@ function handleLogout() {
 }
 
 socket.on('auth_success', (data) => {
-    // FIX: Client side JSON parser for safety
     let safeInventory = data.inventory;
     if (typeof safeInventory === 'string') {
         try { safeInventory = JSON.parse(safeInventory); }
@@ -117,8 +117,6 @@ socket.on('auth_success', (data) => {
     data.inventory = safeInventory;
 
     currentUser = { ...currentUser, ...data, isLoggedIn: true };
-    
-    // FIX: Updates display name from 'Guest' to actual username
     currentUser.name = data.username;
     currentUser.username = data.username;
 
@@ -154,7 +152,6 @@ function renderShop() {
     const coinsEl = document.getElementById('shop-coins');
     if (coinsEl) coinsEl.innerText = currentUser.coins;
     
-    // Safety check
     if(!Array.isArray(currentUser.inventory)) currentUser.inventory = ['avatar_default', 'ability_none'];
 
     SHOP_ITEMS.forEach(item => {
@@ -180,7 +177,6 @@ function renderVault() {
     if (!box) return;
     box.innerHTML = '';
     
-    // Safety check
     if(!Array.isArray(currentUser.inventory)) currentUser.inventory = ['avatar_default', 'ability_none'];
 
     const ownedItems = SHOP_ITEMS.filter(item => currentUser.inventory.includes(item.id));
@@ -206,8 +202,6 @@ function renderVault() {
 
 function buyItem(id, price) {
     if (currentUser.coins < price) { showToast('❌ Not enough coins!'); return; }
-    
-    // Safety check before push
     if (!Array.isArray(currentUser.inventory)) currentUser.inventory = ['avatar_default', 'ability_none'];
     
     currentUser.coins -= price;
@@ -334,7 +328,7 @@ function updateBoardTokens(players) {
                 tokenEl.classList.add('valid-move');
                 tokenEl.onclick = () => {
                     socket.emit('moveToken', { roomId: currentRoomId, tokenIdx: tIdx });
-                    myValidMoves = [];
+                    myValidMoves = []; // FIX: Immediately lock input after click to prevent double-click glitches
                     updateBoardTokens(gameState.players); 
                 };
             }
@@ -429,19 +423,30 @@ socket.on('startDuel', (data) => {
     }
     const overlay = document.getElementById('duel-overlay');
     if (overlay) overlay.classList.remove('hidden');
+    
+    // FIX: Clear any existing timers before starting a new one
+    if (duelTimerInterval) clearInterval(duelTimerInterval);
+    
     let timeLeft = 15;
     const timer = document.getElementById('duel-timer');
     if (timer) timer.innerText = timeLeft;
-    const interval = setInterval(() => {
+    
+    duelTimerInterval = setInterval(() => {
         timeLeft--;
         if (timer) timer.innerText = timeLeft;
-        if (timeLeft <= 0) clearInterval(interval);
+        if (timeLeft <= 0) {
+            clearInterval(duelTimerInterval);
+        }
     }, 1000);
 });
 
 socket.on('duelEnded', (data) => {
     const overlay = document.getElementById('duel-overlay');
     if (overlay) overlay.classList.add('hidden');
+    
+    // FIX: Ensure the timer stops when the duel finishes early
+    if (duelTimerInterval) clearInterval(duelTimerInterval);
+    
     showToast(data.msg);
     gameState.players = data.players;
     updateBoardTokens(data.players);
