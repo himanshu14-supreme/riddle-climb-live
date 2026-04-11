@@ -16,7 +16,7 @@ const db = mysql.createConnection({
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'railway', // Use 'railway' as seen in your screenshot
-    port: process.env.DB_PORT || 42111          // Add this line
+    port: process.env.DB_PORT || 34744         // Add this line
 });
 
 db.connect((err) => {
@@ -34,7 +34,7 @@ function createDatabase() {
         host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || '',
-        port: process.env.DB_PORT || 42111 // Add this line here too
+        port: process.env.DB_PORT || 34744 // Add this line here too
     });
     // ... rest of your code
     
