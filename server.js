@@ -146,7 +146,6 @@ io.on('connection', (socket) => {
     socket.on('save_data', (data) => {
         if (!socket.username) return;
         
-        // Update live session to avoid bugs when joining rooms after equipping
         if (userSessions[socket.id]) {
             userSessions[socket.id].coins = data.coins;
             userSessions[socket.id].xp = data.xp;
@@ -161,12 +160,9 @@ io.on('connection', (socket) => {
         );
     });
 
-    // Leaderboard fetch
     socket.on('getLeaderboard', () => {
         db.query('SELECT username, xp FROM users ORDER BY xp DESC LIMIT 10', (err, results) => {
-            if (!err) {
-                socket.emit('leaderboardData', results);
-            }
+            if (!err) socket.emit('leaderboardData', results);
         });
     });
 
@@ -240,15 +236,6 @@ io.on('connection', (socket) => {
         if (currentPlayer.id !== socket.id) return;
         
         let roll = Math.floor(Math.random() * 6) + 1;
-
-        // Apply Abilities
-        if (currentPlayer.selectedAbility === 'ability_lucky' && roll === 1) {
-            roll = 2; // Lucky Dice prevents 1s
-        }
-        if (currentPlayer.selectedAbility === 'ability_haste') {
-            roll += 1; // Boots of Haste adds +1 to every roll
-        }
-
         room.currentRoll = roll;
         
         // Stun Check
@@ -260,11 +247,22 @@ io.on('connection', (socket) => {
             return;
         }
         
+        // SMART ABILITY LOGIC: Valid Moves Calculation
         let validMoves = [];
+        const hasHaste = currentPlayer.selectedAbility === 'ability_haste';
+
         currentPlayer.tokens.forEach((t, idx) => {
-            // Because Haste can make roll > 6, we still count it as unlocking a base token if it's 6 or 7
-            if (t.progress === -1 && roll >= 6) validMoves.push(idx); 
-            else if (t.progress >= 0 && t.progress + roll <= 56) validMoves.push(idx); 
+            if (t.progress === -1 && roll === 6) {
+                validMoves.push(idx); 
+            } else if (t.progress >= 0) {
+                if (hasHaste) {
+                    // Boots of Haste: Over-rolls are permitted, they will be capped at 56 during movement
+                    validMoves.push(idx);
+                } else if (t.progress + roll <= 56) {
+                    // Standard rules: Requires exact roll to reach 56
+                    validMoves.push(idx); 
+                }
+            }
         });
         
         if (validMoves.length === 0) {
@@ -292,7 +290,12 @@ io.on('connection', (socket) => {
         if (token.progress === -1) {
             token.progress = 0; 
         } else {
-            token.progress += roll; 
+            token.progress += roll;
+            
+            // Apply Haste Cap logic: If they overshoot 56, stop them exactly at 56
+            if (currentPlayer.selectedAbility === 'ability_haste' && token.progress > 56) {
+                token.progress = 56;
+            }
         }
         
         room.state = 'PLAYING';
@@ -303,7 +306,6 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('boardUpdated', { players: room.players });
             io.to(roomId).emit('gameEnded', { msg: `👑 ${currentPlayer.name} WON THE GAME!` });
             
-            // Add rewards
             if (currentPlayer.name && !currentPlayer.name.startsWith('Guest')) {
                 db.query('UPDATE users SET xp = xp + 200, coins = coins + 100 WHERE username = ?', [currentPlayer.name]);
             }
@@ -337,8 +339,13 @@ io.on('connection', (socket) => {
             startDuel(roomId, currentPlayer, tokenIdx, duelDefender, defenderTokenIdx);
         } else {
             io.to(roomId).emit('boardUpdated', { players: room.players });
-            if (roll >= 6) {
-                io.to(roomId).emit('turnUpdate', { activePlayerId: currentPlayer.id, activePlayerName: currentPlayer.name, msg: "Rolled a 6+! Roll again." });
+
+            // SMART ABILITY LOGIC: Extra Turn Evaluation
+            const isLucky = currentPlayer.selectedAbility === 'ability_lucky';
+            
+            if (roll === 6 || (roll === 1 && isLucky)) {
+                let msg = roll === 6 ? "Rolled a 6! Roll again." : "Lucky Dice! Extra roll for rolling a 1.";
+                io.to(roomId).emit('turnUpdate', { activePlayerId: currentPlayer.id, activePlayerName: currentPlayer.name, msg: msg });
             } else {
                 nextTurn(roomId);
             }
@@ -395,9 +402,16 @@ io.on('connection', (socket) => {
             msg = `⚔️ ${defender.name} wins by default!`;
         }
         
-        // Reward Winner
+        // Base Duel Rewards
         if (winner.name && !winner.name.startsWith('Guest')) {
             db.query('UPDATE users SET xp = xp + 50, coins = coins + 20 WHERE username = ?', [winner.name]);
+            
+            // SMART ABILITY LOGIC: Fortune Coin Steal
+            if (winner.selectedAbility === 'ability_fortune' && loser.name && !loser.name.startsWith('Guest')) {
+                db.query('UPDATE users SET coins = GREATEST(0, coins - 50) WHERE username = ?', [loser.name]);
+                db.query('UPDATE users SET coins = coins + 50 WHERE username = ?', [winner.name]);
+                msg += ` (Stole 50 coins!)`;
+            }
         }
 
         // Apply Punishments to Loser & Check for Shield Ability
