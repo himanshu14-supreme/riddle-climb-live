@@ -12,11 +12,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 const db = mysql.createConnection({
-    host: process.env.DB_HOST || 'junction.proxy.rlwy.net',
+    host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'hGQJyjUlTXeyKjLMkhWRGeGnOeayFtgm',
-    database: process.env.DB_NAME || 'railway'
-    port: process.env.DB_PORT || 34744
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'ludo_game',
+    port: process.env.DB_PORT || 3306 // <--- Add this line
 });
 
 db.connect((err) => {
