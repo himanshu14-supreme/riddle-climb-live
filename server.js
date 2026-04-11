@@ -15,8 +15,8 @@ const db = mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'railway', // Use 'railway' as seen in your screenshot
-    port: process.env.DB_PORT || 34744         // Add this line
+    database: process.env.DB_NAME || 'railway', 
+    port: process.env.DB_PORT || 34744          
 });
 
 db.connect((err) => {
@@ -34,9 +34,8 @@ function createDatabase() {
         host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || '',
-        port: process.env.DB_PORT || 34744 // Add this line here too
+        port: process.env.DB_PORT || 34744 
     });
-    // ... rest of your code
     
     tempDb.connect((err) => {
         if (err) return;
@@ -90,7 +89,7 @@ const RIDDLES = [
 ];
 
 const SAFE_ZONES = [0, 8, 13, 21, 26, 34, 39, 47];
-const START_OFFSETS = [0, 13, 26, 39]; // Red, Green, Yellow, Blue
+const START_OFFSETS = [0, 13, 26, 39]; 
 
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -131,8 +130,14 @@ io.on('connection', (socket) => {
             if (!results || results.length === 0) return socket.emit('auth_error', 'Invalid username or password');
             const u = results[0];
             socket.username = u.username;
+            
+            // FIX: Safely parse inventory
             let inventory = ['avatar_default', 'ability_none'];
-            try { if (u.inventory) inventory = JSON.parse(u.inventory); } catch (e) {}
+            try { 
+                if (u.inventory) {
+                    inventory = typeof u.inventory === 'string' ? JSON.parse(u.inventory) : u.inventory;
+                }
+            } catch (e) { console.error("Inventory Parse Error:", e); }
             
             userSessions[socket.id] = { 
                 username: u.username, 
@@ -147,7 +152,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('save_data', (data) => {
-        if (!socket.username) return;
+        // FIX: Ensure username is available even if socket reconnects
+        const uname = socket.username || data.username;
+        if (!uname) return;
         
         if (userSessions[socket.id]) {
             userSessions[socket.id].coins = data.coins;
@@ -157,9 +164,12 @@ io.on('connection', (socket) => {
             userSessions[socket.id].selectedAbility = data.selectedAbility;
         }
 
+        // FIX: Ensure inventory is safely converted to string for database storage
+        const invString = Array.isArray(data.inventory) ? JSON.stringify(data.inventory) : data.inventory;
+
         db.query(
             'UPDATE users SET coins = ?, xp = ?, inventory = ?, selectedAvatar = ?, selectedAbility = ? WHERE username = ?',
-            [data.coins, data.xp, JSON.stringify(data.inventory), data.selectedAvatar, data.selectedAbility, socket.username]
+            [data.coins, data.xp, invString, data.selectedAvatar, data.selectedAbility, uname]
         );
     });
 
@@ -241,7 +251,6 @@ io.on('connection', (socket) => {
         let roll = Math.floor(Math.random() * 6) + 1;
         room.currentRoll = roll;
         
-        // Stun Check
         if (currentPlayer.stunned) {
             currentPlayer.stunned = false;
             io.to(roomId).emit('diceRolled', { roll, validMoves: [], players: room.players });
@@ -250,7 +259,6 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // SMART ABILITY LOGIC: Valid Moves Calculation
         let validMoves = [];
         const hasHaste = currentPlayer.selectedAbility === 'ability_haste';
 
@@ -259,10 +267,8 @@ io.on('connection', (socket) => {
                 validMoves.push(idx); 
             } else if (t.progress >= 0) {
                 if (hasHaste) {
-                    // Boots of Haste: Over-rolls are permitted, they will be capped at 56 during movement
                     validMoves.push(idx);
                 } else if (t.progress + roll <= 56) {
-                    // Standard rules: Requires exact roll to reach 56
                     validMoves.push(idx); 
                 }
             }
@@ -294,8 +300,6 @@ io.on('connection', (socket) => {
             token.progress = 0; 
         } else {
             token.progress += roll;
-            
-            // Apply Haste Cap logic: If they overshoot 56, stop them exactly at 56
             if (currentPlayer.selectedAbility === 'ability_haste' && token.progress > 56) {
                 token.progress = 56;
             }
@@ -303,7 +307,6 @@ io.on('connection', (socket) => {
         
         room.state = 'PLAYING';
         
-        // Check for Win 
         const hasWon = currentPlayer.tokens.every(t => t.progress === 56);
         if (hasWon) {
             io.to(roomId).emit('boardUpdated', { players: room.players });
@@ -317,7 +320,6 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // Check for Duel
         const absPos = getAbsolutePosition(currentPlayerIdx, token.progress);
         let duelDefender = null;
         let defenderTokenIdx = -1;
@@ -342,8 +344,6 @@ io.on('connection', (socket) => {
             startDuel(roomId, currentPlayer, tokenIdx, duelDefender, defenderTokenIdx);
         } else {
             io.to(roomId).emit('boardUpdated', { players: room.players });
-
-            // SMART ABILITY LOGIC: Extra Turn Evaluation
             const isLucky = currentPlayer.selectedAbility === 'ability_lucky';
             
             if (roll === 6 || (roll === 1 && isLucky)) {
@@ -405,11 +405,8 @@ io.on('connection', (socket) => {
             msg = `⚔️ ${defender.name} wins by default!`;
         }
         
-        // Base Duel Rewards
         if (winner.name && !winner.name.startsWith('Guest')) {
             db.query('UPDATE users SET xp = xp + 50, coins = coins + 20 WHERE username = ?', [winner.name]);
-            
-            // SMART ABILITY LOGIC: Fortune Coin Steal
             if (winner.selectedAbility === 'ability_fortune' && loser.name && !loser.name.startsWith('Guest')) {
                 db.query('UPDATE users SET coins = GREATEST(0, coins - 50) WHERE username = ?', [loser.name]);
                 db.query('UPDATE users SET coins = coins + 50 WHERE username = ?', [winner.name]);
@@ -417,22 +414,18 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Apply Punishments to Loser & Check for Shield Ability
         if (loser.selectedAbility !== 'ability_shield') {
-            loser.stunned = true; // Player loses next turn if they don't have shield
+            loser.stunned = true; 
         } else {
             msg += ` (Shield protected ${loser.name} from stun!)`;
         }
-        loser.tokens[loserTokenIdx].progress = -1; // Token still sent to base
+        loser.tokens[loserTokenIdx].progress = -1; 
         
         io.to(roomId).emit('duelEnded', { msg: msg, players: room.players });
-        
         room.state = 'PLAYING';
         room.duel = null;
         
-        setTimeout(() => {
-            if (rooms[roomId]) nextTurn(roomId);
-        }, 3000);
+        setTimeout(() => { if (rooms[roomId]) nextTurn(roomId); }, 3000);
     }
 
     socket.on('leaveRoom', (roomId) => leaveRoomHandler(roomId, socket));
