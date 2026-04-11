@@ -1,6 +1,5 @@
 const socket = io();
 
-// Updated Shop Items with new Logical Abilities
 const SHOP_ITEMS = [
     { id: 'avatar_default', name: 'Peasant', icon: '👤', type: 'avatar', price: 0, desc: 'A simple traveler.' },
     { id: 'avatar_knight', name: 'Knight', icon: '🛡️', type: 'avatar', price: 150, desc: 'Armor forged in the arena.' },
@@ -109,7 +108,20 @@ function handleLogout() {
 }
 
 socket.on('auth_success', (data) => {
+    // FIX: Client side JSON parser for safety
+    let safeInventory = data.inventory;
+    if (typeof safeInventory === 'string') {
+        try { safeInventory = JSON.parse(safeInventory); }
+        catch (e) { safeInventory = ['avatar_default', 'ability_none']; }
+    }
+    data.inventory = safeInventory;
+
     currentUser = { ...currentUser, ...data, isLoggedIn: true };
+    
+    // FIX: Updates display name from 'Guest' to actual username
+    currentUser.name = data.username;
+    currentUser.username = data.username;
+
     goToPage('lobby');
     updateProfileUI();
     showToast('✅ Welcome back, ' + data.username + '!');
@@ -142,6 +154,9 @@ function renderShop() {
     const coinsEl = document.getElementById('shop-coins');
     if (coinsEl) coinsEl.innerText = currentUser.coins;
     
+    // Safety check
+    if(!Array.isArray(currentUser.inventory)) currentUser.inventory = ['avatar_default', 'ability_none'];
+
     SHOP_ITEMS.forEach(item => {
         if (item.price === 0) return;
         const isOwned = currentUser.inventory.includes(item.id);
@@ -164,6 +179,10 @@ function renderVault() {
     const box = document.getElementById('vault-items');
     if (!box) return;
     box.innerHTML = '';
+    
+    // Safety check
+    if(!Array.isArray(currentUser.inventory)) currentUser.inventory = ['avatar_default', 'ability_none'];
+
     const ownedItems = SHOP_ITEMS.filter(item => currentUser.inventory.includes(item.id));
     if (ownedItems.length === 0) {
         box.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-dim);">No items yet! Visit the Armory.</p>';
@@ -187,10 +206,16 @@ function renderVault() {
 
 function buyItem(id, price) {
     if (currentUser.coins < price) { showToast('❌ Not enough coins!'); return; }
+    
+    // Safety check before push
+    if (!Array.isArray(currentUser.inventory)) currentUser.inventory = ['avatar_default', 'ability_none'];
+    
     currentUser.coins -= price;
     currentUser.inventory.push(id);
     socket.emit('save_data', currentUser);
-    updateProfileUI(); renderShop(); renderVault();
+    updateProfileUI(); 
+    renderShop(); 
+    renderVault();
     showToast('✅ Item purchased!');
 }
 
