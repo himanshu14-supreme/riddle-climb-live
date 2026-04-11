@@ -82,9 +82,10 @@
         </div>
 
         <div class="menu-section">
-            <h4>Shop & Inventory</h4>
+            <h4>Shop, Inventory & Rankings</h4>
             <button class="btn btn-secondary" onclick="goToPage('shop')">🛍️ The Armory</button>
             <button class="btn btn-secondary" onclick="goToPage('vault')">🏺 Vault</button>
+            <button class="btn btn-secondary" onclick="goToPage('leaderboard')">🏆 Leaderboard</button>
         </div>
 
         <div class="menu-section">
@@ -99,6 +100,15 @@
         </div>
 
         <button class="btn btn-logout" onclick="handleLogout()">Logout</button>
+    </div>
+</div>
+
+<div id="page-leaderboard" class="page">
+    <div class="header-bar"><button class="back-btn" onclick="goBack()">←</button><h2>🏆 Top Players</h2><div class="header-spacer"></div></div>
+    <div class="leaderboard-content">
+        <div id="leaderboard-list" class="leaderboard-list">
+            <p style="text-align:center; color:var(--text-dim);">Loading rankings...</p>
+        </div>
     </div>
 </div>
 
@@ -120,7 +130,7 @@
     <div class="rules-content">
         <div class="rule-section"><h3>🎲 Movement</h3><p>Roll a 6 to bring a token out of the base. Roll again to move!</p></div>
         <div class="rule-section"><h3>⚔️ Duels</h3><p>Land on an opponent's token to trigger a riddle duel. Answer faster to win and send them back to base!</p></div>
-        <div class="rule-section"><h3>😵 Stunned</h3><p>If you lose a duel, your token returns to base and you miss your next turn.</p></div>
+        <div class="rule-section"><h3>😵 Stunned</h3><p>If you lose a duel, your token returns to base and you miss your next turn (unless you have a shield).</p></div>
         <div class="rule-section"><h3>🏁 Victory</h3><p>First player to get all 4 tokens to the center HOME wins!</p></div>
     </div>
 </div>
