@@ -15,8 +15,8 @@ const db = mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'ludo_game',
-    port: process.env.DB_PORT || 3306 // <--- Add this line
+    database: process.env.DB_NAME || 'railway', // Use 'railway' as seen in your screenshot
+    port: process.env.DB_PORT || 42111          // Add this line
 });
 
 db.connect((err) => {
@@ -33,8 +33,10 @@ function createDatabase() {
     const tempDb = mysql.createConnection({
         host: process.env.DB_HOST || 'localhost',
         user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || ''
+        password: process.env.DB_PASSWORD || '',
+        port: process.env.DB_PORT || 42111 // Add this line here too
     });
+    // ... rest of your code
     
     tempDb.connect((err) => {
         if (err) return;
