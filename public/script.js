@@ -1,12 +1,17 @@
 const socket = io();
 
+// Updated Shop Items with clear explanations and new additions
 const SHOP_ITEMS = [
     { id: 'avatar_default', name: 'Peasant', icon: '👤', type: 'avatar', price: 0, desc: 'A simple traveler.' },
     { id: 'avatar_knight', name: 'Knight', icon: '🛡️', type: 'avatar', price: 150, desc: 'Armor forged in the arena.' },
     { id: 'avatar_mage', name: 'Mage', icon: '🧙', type: 'avatar', price: 200, desc: 'Master of riddles.' },
-    { id: 'ability_none', name: 'No Ability', icon: '🚫', type: 'ability', price: 0, desc: 'No special abilities.' },
-    { id: 'ability_haste', name: 'Boots of Haste', icon: '⚡', type: 'ability', price: 300, desc: 'Moves slightly faster.' },
-    { id: 'ability_shield', name: 'Riddle Shield', icon: '🔰', type: 'ability', price: 400, desc: 'Block one stun.' }
+    { id: 'avatar_ninja', name: 'Ninja', icon: '🥷', type: 'avatar', price: 250, desc: 'Silent and deadly.' },
+    { id: 'avatar_king', name: 'King', icon: '👑', type: 'avatar', price: 500, desc: 'Rule the board.' },
+    
+    { id: 'ability_none', name: 'No Ability', icon: '🚫', type: 'ability', price: 0, desc: 'Play fair and square.' },
+    { id: 'ability_haste', name: 'Boots of Haste', icon: '⚡', type: 'ability', price: 300, desc: 'Add +1 to every dice roll!' },
+    { id: 'ability_shield', name: 'Riddle Shield', icon: '🔰', type: 'ability', price: 400, desc: 'Never get stunned when you lose a duel.' },
+    { id: 'ability_lucky', name: 'Lucky Dice', icon: '🍀', type: 'ability', price: 450, desc: 'You will never roll a 1 again.' }
 ];
 
 const LUDO_PATH = [
@@ -37,7 +42,7 @@ let currentRoomId = null;
 let isHost = false;
 let myId = null;
 let gameState = { players: [], gameStarted: false };
-let myValidMoves = []; // Store which tokens can be moved currently
+let myValidMoves = [];
 
 function goToPage(pageName) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -48,6 +53,7 @@ function goToPage(pageName) {
     
     if (pageName === 'shop') renderShop();
     if (pageName === 'vault') renderVault();
+    if (pageName === 'leaderboard') socket.emit('getLeaderboard');
 }
 
 function goBack() {
@@ -237,6 +243,25 @@ function equipItem(id, type) {
     showToast('✅ Item equipped!');
 }
 
+// Leaderboard Reception
+socket.on('leaderboardData', (data) => {
+    const list = document.getElementById('leaderboard-list');
+    if (!list) return;
+    
+    if (data.length === 0) {
+        list.innerHTML = '<p style="text-align:center; color:var(--text-dim);">No ranked players yet.</p>';
+        return;
+    }
+
+    list.innerHTML = data.map((u, i) => `
+        <div class="lb-item">
+            <span class="lb-rank">#${i + 1}</span>
+            <span class="lb-name">${u.username}</span>
+            <span class="lb-xp">${u.xp} XP</span>
+        </div>
+    `).join('');
+});
+
 function handleCreateRoom() {
     const roomName = document.getElementById('room-name').value.trim();
     if (!socket.connected) {
@@ -310,7 +335,6 @@ socket.on('updatePlayers', (players) => {
     
     const gameList = document.getElementById('game-players-list');
     if (gameList) {
-        const colorNames = ['Red', 'Green', 'Yellow', 'Blue'];
         const hexColors = ['#dc2626', '#059669', '#ca8a04', '#1d4ed8'];
         gameList.innerHTML = players.map((p, idx) => `
             <div class="player-item" style="border-left: 4px solid ${hexColors[idx % 4]}">
@@ -343,7 +367,7 @@ function updateBoardTokens(players) {
     
     const colorNames = ['red', 'green', 'yellow', 'blue'];
     const hexColors = ['#dc2626', '#059669', '#ca8a04', '#1d4ed8'];
-    const startOffsets = [0, 13, 26, 39]; // Essential for plotting absolute board cell
+    const startOffsets = [0, 13, 26, 39];
     
     players.forEach((player, pIdx) => {
         const colorName = colorNames[pIdx % 4];
@@ -355,16 +379,13 @@ function updateBoardTokens(players) {
             tokenEl.style.backgroundColor = hexColor;
             tokenEl.innerHTML = SHOP_ITEMS.find(sh => sh.id === player.selectedAvatar)?.icon || '👤';
             
-            // If the player is stunned, add a visual grayscale effect
             if (player.stunned) {
                 tokenEl.classList.add('stunned');
             }
 
-            // Highlighting movable tokens 
             if (player.id === myId && myValidMoves.includes(tIdx)) {
                 tokenEl.classList.add('valid-move');
                 tokenEl.onclick = () => {
-                    // Send move event, clear local valid moves
                     socket.emit('moveToken', { roomId: currentRoomId, tokenIdx: tIdx });
                     myValidMoves = [];
                     updateBoardTokens(gameState.players); 
@@ -374,18 +395,14 @@ function updateBoardTokens(players) {
             let targetCell;
             
             if (token.progress === -1) {
-                // In base
                 const slots = document.querySelectorAll(`#${colorName}-base .yard-slot`);
                 targetCell = slots[tIdx];
             } else if (token.progress >= 0 && token.progress <= 50) {
-                // Main path (0 to 50 relative progress maps to 0 to 51 absolute id)
                 const absPos = (startOffsets[pIdx % 4] + token.progress) % 52;
                 targetCell = document.getElementById(`cell-${absPos}`);
             } else if (token.progress >= 51 && token.progress <= 55) {
-                // Home stretch
                 targetCell = document.getElementById(`${colorName}-home-${token.progress - 51}`);
             } else if (token.progress === 56) {
-                // Reached center
                 targetCell = document.querySelector(`.home-${colorName}`);
             }
             
@@ -406,7 +423,11 @@ function animateDice(result) {
     setTimeout(() => {
         cube.classList.remove('rolling');
         let rotX = 0, rotY = 0;
-        switch(result) {
+        
+        // Ensure visual face corresponds roughly to result (handling results > 6 for haste)
+        let visualResult = result > 6 ? 6 : result;
+        
+        switch(visualResult) {
             case 1: rotX = 0; rotY = 0; break;
             case 6: rotX = 0; rotY = 180; break;
             case 3: rotX = 0; rotY = -90; break;
@@ -426,7 +447,7 @@ socket.on('diceRolled', (data) => {
         updateBoardTokens(data.players);
         
         if(myValidMoves.length > 0) {
-            showToast("Tap a glowing token to move!");
+            showToast(`Rolled ${data.roll}! Tap a glowing token to move!`);
         }
     }, 1000);
 });
